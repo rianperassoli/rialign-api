@@ -1,0 +1,14 @@
+#!/bin/bash
+set -e
+
+# Ensure gems are present (handles a freshly-mounted volume in dev).
+if [ -f Gemfile ]; then
+  bundle check || bundle install
+fi
+
+# Prepare the database (creates + loads schema + runs pending migrations).
+if [ "${1}" = "bin/rails" ] && [ "${2}" = "server" ]; then
+  ./bin/rails db:prepare
+fi
+
+exec "$@"
