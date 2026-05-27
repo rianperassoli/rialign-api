@@ -32,11 +32,11 @@ module Api
       private
 
       def set_category
-        @category = current_user.categories.find(params[:id])
+        @category = current_user.categories.find(params.expect(:id))
       end
 
       def category_params
-        params.require(:category).permit(:name, :kind, :color)
+        params.expect(category: %i[name kind color])
       end
     end
   end

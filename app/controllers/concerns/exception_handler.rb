@@ -15,9 +15,5 @@ module ExceptionHandler
     rescue_from ActionController::ParameterMissing do |e|
       render_error("Missing parameter", status: :bad_request, errors: [e.message])
     end
-
-    rescue_from Pagy::OverflowError do
-      render_error("Requested page is out of range", status: :unprocessable_entity)
-    end
   end
 end

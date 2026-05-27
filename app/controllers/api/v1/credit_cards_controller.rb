@@ -31,11 +31,11 @@ module Api
       private
 
       def set_credit_card
-        @credit_card = current_user.credit_cards.find(params[:id])
+        @credit_card = current_user.credit_cards.find(params.expect(:id))
       end
 
       def credit_card_params
-        params.require(:credit_card).permit(:name, :credit_limit, :closing_day, :due_day)
+        params.expect(credit_card: %i[name credit_limit closing_day due_day])
       end
     end
   end

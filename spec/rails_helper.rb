@@ -9,7 +9,7 @@ require "shoulda/matchers"
 require "database_cleaner/active_record"
 
 # Load support files (helpers, shared examples).
-Dir[Rails.root.join("spec/support/**/*.rb")].sort.each { |f| require f }
+Rails.root.glob("spec/support/**/*.rb").each { |f| require f }
 
 # Fail fast on pending migrations.
 begin
@@ -29,6 +29,11 @@ RSpec.configure do |config|
 
   # Request spec auth helper.
   config.include AuthHelpers, type: :request
+
+  # rspec-rails populates config.hosts with .localhost/.test patterns, so the
+  # default integration host "www.example.com" trips Host Authorization (403).
+  # Use a host that matches the permitted ".test" suffix instead.
+  config.before(:each, type: :request) { host! "example.test" }
 
   config.before(:suite) do
     DatabaseCleaner.clean_with(:truncation)

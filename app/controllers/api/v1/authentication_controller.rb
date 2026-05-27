@@ -6,7 +6,10 @@ module Api
       # POST /api/v1/auth/register
       def register
         result = Auth::RegisterUser.call(params: register_params)
-        return render_error("Registration failed", status: :unprocessable_entity, errors: result.errors) if result.failure?
+        if result.failure?
+          return render_error("Registration failed", status: :unprocessable_entity,
+                                                     errors: result.errors)
+        end
 
         render_auth(result.data, status: :created)
       end

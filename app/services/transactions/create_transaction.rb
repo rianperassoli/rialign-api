@@ -18,8 +18,6 @@ module Transactions
       success(transaction)
     rescue ActiveRecord::RecordInvalid => e
       failure(e.record.errors)
-    rescue ActiveRecord::RecordNotFound
-      failure("Referenced category, account or credit card was not found")
     end
   end
 end

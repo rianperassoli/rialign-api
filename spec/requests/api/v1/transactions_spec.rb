@@ -49,4 +49,37 @@ RSpec.describe "Api::V1::Transactions", type: :request do
       expect(json.dig("meta", "pagination", "count")).to eq(3)
     end
   end
+
+  describe "GET /api/v1/transactions/:id" do
+    it "shows an owned transaction" do
+      transaction = create(:transaction, user:, account:, category:)
+      get "/api/v1/transactions/#{transaction.id}", headers: auth_headers(user)
+      expect(response).to have_http_status(:ok)
+      expect(json.dig("data", "id")).to eq(transaction.id)
+    end
+
+    it "returns 404 for another user's transaction" do
+      get "/api/v1/transactions/#{create(:transaction).id}", headers: auth_headers(user)
+      expect(response).to have_http_status(:not_found)
+    end
+  end
+
+  describe "PATCH /api/v1/transactions/:id" do
+    it "updates a transaction" do
+      transaction = create(:transaction, user:, account:, category:)
+      patch "/api/v1/transactions/#{transaction.id}",
+            params: { transaction: { description: "Updated" } }.to_json, headers: auth_headers(user)
+      expect(response).to have_http_status(:ok)
+      expect(transaction.reload.description).to eq("Updated")
+    end
+  end
+
+  describe "DELETE /api/v1/transactions/:id" do
+    it "soft deletes a transaction" do
+      transaction = create(:transaction, user:, account:, category:)
+      delete "/api/v1/transactions/#{transaction.id}", headers: auth_headers(user)
+      expect(response).to have_http_status(:no_content)
+      expect(transaction.reload).to be_archived
+    end
+  end
 end

@@ -22,11 +22,39 @@ Style/Documentation:
 Style/FrozenStringLiteralComment:
   Enabled: false
 
+# Double quotes throughout — the convention this codebase is written in.
+Style/StringLiterals:
+  EnforcedStyle: double_quotes
+
+Style/StringLiteralsInInterpolation:
+  EnforcedStyle: double_quotes
+
+# Service/value objects deliberately don't call super (base classes define no
+# initializer), so this would be noise for our architecture.
+Lint/MissingSuper:
+  Enabled: false
+
+# Seeds legitimately print progress to stdout.
+Rails/Output:
+  Exclude:
+    - "db/seeds.rb"
+
+# rails_helper aborts on a misconfigured environment (standard generated code).
+Rails/Exit:
+  Exclude:
+    - "spec/rails_helper.rb"
+
 Metrics/MethodLength:
   Max: 20
 
 Metrics/AbcSize:
   Max: 25
+  Exclude:
+    - "app/queries/**/*" # filter builders are inherently a sequence of conditions
+
+Metrics/CyclomaticComplexity:
+  Exclude:
+    - "app/queries/**/*"
 
 Metrics/BlockLength:
   Exclude:
@@ -41,6 +69,9 @@ RSpec/ExampleLength:
 
 RSpec/MultipleExpectations:
   Max: 6
+
+RSpec/MultipleMemoizedHelpers:
+  Max: 8
 
 RSpec/NestedGroups:
   Max: 4

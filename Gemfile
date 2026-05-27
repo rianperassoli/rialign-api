@@ -2,9 +2,9 @@ source "https://rubygems.org"
 
 ruby "3.3.0"
 
-gem "rails", "~> 8.0.0"
 gem "pg", "~> 1.5"
 gem "puma", "~> 6.4"
+gem "rails", "~> 8.0.0"
 
 # Auth
 gem "bcrypt", "~> 3.1.7"
@@ -18,22 +18,22 @@ gem "rack-cors"               # CORS
 gem "bootsnap", require: false
 
 group :development, :test do
-  gem "rspec-rails", "~> 7.0"
+  gem "debug", platforms: %i[mri windows]
+  gem "dotenv-rails"
   gem "factory_bot_rails"
   gem "faker"
-  gem "dotenv-rails"
-  gem "debug", platforms: %i[mri windows]
+  gem "rspec-rails", "~> 7.0"
 end
 
 group :development do
   gem "rubocop", require: false
+  gem "rubocop-performance", require: false
   gem "rubocop-rails", require: false
   gem "rubocop-rspec", require: false
-  gem "rubocop-performance", require: false
 end
 
 group :test do
-  gem "simplecov", require: false
-  gem "shoulda-matchers", "~> 6.0"
   gem "database_cleaner-active_record"
+  gem "shoulda-matchers", "~> 6.0"
+  gem "simplecov", require: false
 end

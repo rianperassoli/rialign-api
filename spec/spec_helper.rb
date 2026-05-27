@@ -9,8 +9,8 @@ SimpleCov.start "rails" do
   add_group "Serializers", "app/serializers"
   add_group "Policies", "app/policies"
 
-  # Aim for full coverage; flip to a hard gate once the suite is filled in.
-  minimum_coverage 0
+  # Enforce full coverage as a hard gate.
+  minimum_coverage line: 100, branch: 100
 end
 
 RSpec.configure do |config|

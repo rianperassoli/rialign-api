@@ -36,11 +36,11 @@ module Api
       private
 
       def set_account
-        @account = current_user.accounts.find(params[:id])
+        @account = current_user.accounts.find(params.expect(:id))
       end
 
       def account_params
-        params.require(:account).permit(:name, :account_type, :initial_balance)
+        params.expect(account: %i[name account_type initial_balance])
       end
     end
   end

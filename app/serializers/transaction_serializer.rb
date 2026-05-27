@@ -18,9 +18,8 @@ class TransactionSerializer < ApplicationSerializer
     }
   end
 
+  # A transaction always has a category (required association).
   def category
-    return unless object.category
-
     { id: object.category.id, name: object.category.name, kind: object.category.kind }
   end
 end

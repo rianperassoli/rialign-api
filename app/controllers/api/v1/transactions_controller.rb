@@ -16,7 +16,10 @@ module Api
       # POST /api/v1/transactions
       def create
         result = Transactions::CreateTransaction.call(user: current_user, params: transaction_params)
-        return render_error("Could not create transaction", status: :unprocessable_entity, errors: result.errors) if result.failure?
+        if result.failure?
+          return render_error("Could not create transaction", status: :unprocessable_entity,
+                                                              errors: result.errors)
+        end
 
         render_resource(result.data, serializer: TransactionSerializer, status: :created)
       end
@@ -34,13 +37,13 @@ module Api
       private
 
       def set_transaction
-        @transaction = current_user.transactions.find(params[:id])
+        @transaction = current_user.transactions.find(params.expect(:id))
       end
 
       def transaction_params
-        params.require(:transaction).permit(
-          :description, :kind, :amount, :date, :paid, :notes,
-          :category_id, :account_id, :credit_card_id
+        params.expect(
+          transaction: %i[description kind amount date paid notes
+                          category_id account_id credit_card_id]
         )
       end
 

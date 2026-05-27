@@ -23,6 +23,6 @@ module JwtAuthenticatable
 
   def bearer_token
     header = request.headers["Authorization"].to_s
-    header.split(" ").last if header.start_with?("Bearer ")
+    header.split.last if header.start_with?("Bearer ")
   end
 end

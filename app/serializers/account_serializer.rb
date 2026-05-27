@@ -1,6 +1,7 @@
 class AccountSerializer < ApplicationSerializer
   # Pass `balance:` to avoid recomputation when the caller already has it
   # (e.g. dashboard). Falls back to an on-demand calculation otherwise.
+
   private
 
   def attributes

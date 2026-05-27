@@ -25,6 +25,21 @@ RSpec.describe Transaction, type: :model do
       t = build(:transaction, user:, account: create(:account, user:), credit_card: create(:credit_card, user:))
       expect(t).to be_invalid
     end
+
+    it "is invalid when the category kind does not match" do
+      income_cat = create(:income_category, user:)
+      t = build(:transaction, user:, kind: "expense", category: income_cat)
+      expect(t).to be_invalid
+      expect(t.errors[:category]).to include("kind must match the transaction kind")
+    end
+
+    it "is invalid when a credit card holds a non-expense" do
+      card = create(:credit_card, user:)
+      income_cat = create(:income_category, user:)
+      t = build(:transaction, user:, kind: "income", account: nil, credit_card: card, category: income_cat)
+      expect(t).to be_invalid
+      expect(t.errors[:credit_card]).to include("can only hold expense transactions")
+    end
   end
 
   describe "#signed_amount" do

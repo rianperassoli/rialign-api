@@ -3,6 +3,7 @@
 class DashboardSerializer < ApplicationSerializer
   # object: DashboardQuery result hash
   # opts[:balances]: Accounts::BalanceCalculator result hash
+
   private
 
   def attributes

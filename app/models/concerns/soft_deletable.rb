@@ -8,7 +8,9 @@ module SoftDeletable
 
   included do
     scope :kept,     -> { where(archived_at: nil) }
-    scope :archived, -> { where.not(archived_at: nil) }
+    # Unscope the default `archived_at IS NULL` condition, otherwise it would
+    # intersect with this one and always return an empty relation.
+    scope :archived, -> { unscope(where: :archived_at).where.not(archived_at: nil) }
 
     default_scope { kept }
   end
