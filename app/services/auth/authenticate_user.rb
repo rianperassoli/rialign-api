@@ -11,7 +11,7 @@ module Auth
       user = User.find_by("lower(email) = ?", @email)
 
       if user&.authenticate(@password)
-        success(user:, token: JsonWebToken.encode(user_id: user.id))
+        success(user:, token: JsonWebToken.encode({ user_id: user.id }))
       else
         failure("Invalid email or password")
       end

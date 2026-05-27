@@ -22,7 +22,7 @@ module Auth
     private
 
     def token_payload(user)
-      { user:, token: JsonWebToken.encode(user_id: user.id) }
+      { user:, token: JsonWebToken.encode({ user_id: user.id }) }
     end
   end
 end

@@ -3,6 +3,7 @@ require_relative "boot"
 require "rails"
 # Pick only the frameworks we need (API-only).
 require "active_model/railtie"
+require "active_job/railtie"
 require "active_record/railtie"
 require "action_controller/railtie"
 require "action_view/railtie"
