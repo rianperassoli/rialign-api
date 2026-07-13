@@ -12,7 +12,7 @@ require "rails/test_unit/railtie"
 # Require the gems listed in Gemfile.
 Bundler.require(*Rails.groups)
 
-module Rianganizze
+module Rialign
   class Application < Rails::Application
     config.load_defaults 8.0
 

@@ -1,4 +1,4 @@
-# Rianganizze API
+# Rialign API
 
 A professional, **API-only personal finance** REST API inspired by Organizze.
 Ruby 3.3 · Rails 8 · PostgreSQL · JWT · RSpec.
@@ -24,7 +24,7 @@ version does not matter.
 ## Getting started
 
 ```bash
-cd rianganizze-api
+cd rialign-api
 cp .env.example .env          # sane defaults; edit if needed
 docker compose build
 docker compose up             # API on http://localhost:3000
@@ -35,15 +35,15 @@ On the **first** `docker compose up`, the entrypoint automatically runs
 data** (because the DB is brand new). You'll see:
 
 ```
-Created database 'rianganizze_development'
+Created database 'rialign_development'
 Seeding demo data...
-  created user demo@rianganizze.com / password123
+  created user demo@rialign.com / password123
   created sample transactions
 ```
 
 That's it — the API is live with a demo account.
 
-**Demo credentials:** `demo@rianganizze.com` / `password123`
+**Demo credentials:** `demo@rialign.com` / `password123`
 
 ### Re-seeding manually
 
@@ -72,11 +72,11 @@ curl -i localhost:3000/up
 # 2. Log in -> returns a JWT
 curl -s -X POST localhost:3000/api/v1/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"email":"demo@rianganizze.com","password":"password123"}'
+  -d '{"email":"demo@rialign.com","password":"password123"}'
 ```
 
 ```json
-{ "data": { "token": "eyJhbGci...", "user": { "id": 1, "name": "Demo User", "email": "demo@rianganizze.com" } } }
+{ "data": { "token": "eyJhbGci...", "user": { "id": 1, "name": "Demo User", "email": "demo@rialign.com" } } }
 ```
 
 ```bash
@@ -140,7 +140,7 @@ are also set directly in `docker-compose.yml`.
 | `DATABASE_PORT` | `5432` | Postgres port |
 | `DATABASE_USERNAME` | `postgres` | Postgres user |
 | `DATABASE_PASSWORD` | `postgres` | Postgres password |
-| `DATABASE_NAME` | `rianganizze_development` | Dev database name |
+| `DATABASE_NAME` | `rialign_development` | Dev database name |
 | `JWT_SECRET_KEY` | falls back to `secret_key_base` | **Required in production**; signs JWTs |
 | `CORS_ORIGINS` | `*` | Comma-separated allowed origins |
 | `RAILS_MAX_THREADS` | `5` | Puma / DB pool size |

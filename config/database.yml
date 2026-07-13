@@ -9,13 +9,13 @@ default: &default
 
 development:
   <<: *default
-  database: <%= ENV.fetch("DATABASE_NAME", "rianganizze_development") %>
+  database: <%= ENV.fetch("DATABASE_NAME", "rialign_development") %>
 
 test:
   <<: *default
-  database: <%= ENV.fetch("DATABASE_NAME_TEST", "rianganizze_test") %>
+  database: <%= ENV.fetch("DATABASE_NAME_TEST", "rialign_test") %>
 
 production:
   <<: *default
-  database: <%= ENV.fetch("DATABASE_NAME", "rianganizze_production") %>
+  database: <%= ENV.fetch("DATABASE_NAME", "rialign_production") %>
   url: <%= ENV["DATABASE_URL"] %>

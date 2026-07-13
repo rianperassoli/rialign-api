@@ -1,12 +1,12 @@
 # Idempotent demo data. Safe to run repeatedly (`bin/rails db:seed`).
 puts "Seeding demo data..."
 
-user = User.find_or_initialize_by(email: "demo@rianganizze.com")
+user = User.find_or_initialize_by(email: "demo@rialign.com")
 if user.new_record?
   user.assign_attributes(name: "Demo User", password: "password123", password_confirmation: "password123")
   user.save!
   Categories::SeedDefaults.call(user:)
-  puts "  created user demo@rianganizze.com / password123"
+  puts "  created user demo@rialign.com / password123"
 end
 
 checking = user.accounts.find_or_create_by!(name: "Main Checking") do |a|
