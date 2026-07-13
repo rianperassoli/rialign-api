@@ -1,8 +1,10 @@
 require "spec_helper"
-ENV["RAILS_ENV"] ||= "test"
+# Hard-assign (not ||=): the Docker container exports RAILS_ENV=development,
+# which would silently run the suite — and DatabaseCleaner — against the dev DB.
+ENV["RAILS_ENV"] = "test"
 require_relative "../config/environment"
 
-abort("The Rails environment is running in production mode!") if Rails.env.production?
+abort("The Rails environment is running in #{Rails.env} mode!") unless Rails.env.test?
 
 require "rspec/rails"
 require "shoulda/matchers"

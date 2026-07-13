@@ -48,4 +48,46 @@ RSpec.describe "Api::V1::CreditCards", type: :request do
       expect(card.reload).to be_archived
     end
   end
+
+  describe "credit_card payment account" do
+    let(:account) { create(:account, user:) }
+
+    it "stores the payment account on create" do
+      params = { credit_card: { name: "Nubank", credit_limit: 1000, closing_day: 5, due_day: 12,
+                                payment_account_id: account.id } }
+      post "/api/v1/credit_cards", params: params.to_json, headers: auth_headers(user)
+      expect(response).to have_http_status(:created)
+      expect(json.dig("data", "payment_account_id")).to eq(account.id)
+    end
+  end
+
+  describe "POST /api/v1/credit_cards/:id/pay_invoice" do
+    let(:account) { create(:account, user:, initial_balance: 1000) }
+    let(:card) { create(:credit_card, user:, payment_account: account) }
+
+    before do
+      create(:transaction, user:, credit_card: card, account: nil, kind: "expense", amount: 300, paid: false)
+    end
+
+    it "settles the invoice and returns the settlement transaction" do
+      post "/api/v1/credit_cards/#{card.id}/pay_invoice", headers: auth_headers(user)
+      expect(response).to have_http_status(:created)
+      expect(json.dig("data", "account_id")).to eq(account.id)
+      expect(json.dig("data", "transfer_id")).to be_present
+      expect(card.transactions.expense.pending.count).to eq(0)
+    end
+
+    it "accepts an explicit payment account" do
+      other = create(:account, user:, name: "Other")
+      params = { payment: { account_id: other.id } }
+      post "/api/v1/credit_cards/#{card.id}/pay_invoice", params: params.to_json, headers: auth_headers(user)
+      expect(json.dig("data", "account_id")).to eq(other.id)
+    end
+
+    it "returns 422 when there is no open invoice" do
+      empty = create(:credit_card, user:, payment_account: account)
+      post "/api/v1/credit_cards/#{empty.id}/pay_invoice", headers: auth_headers(user)
+      expect(response).to have_http_status(:unprocessable_entity)
+    end
+  end
 end

@@ -8,6 +8,7 @@ class CreditCardSerializer < ApplicationSerializer
       credit_limit: object.credit_limit,
       closing_day: object.closing_day,
       due_day: object.due_day,
+      payment_account_id: object.payment_account_id,
       open_invoice: open_invoice,
       available_limit: object.credit_limit - open_invoice,
       archived: object.archived?,

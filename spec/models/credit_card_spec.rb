@@ -4,9 +4,21 @@ RSpec.describe CreditCard, type: :model do
   subject(:credit_card) { build(:credit_card) }
 
   it { is_expected.to belong_to(:user) }
+  it { is_expected.to belong_to(:payment_account).optional }
   it { is_expected.to have_many(:transactions).dependent(:destroy) }
 
   it { is_expected.to validate_presence_of(:name) }
+
+  it "accepts a payment account owned by the same user" do
+    user = create(:user)
+    expect(build(:credit_card, user:, payment_account: create(:account, user:))).to be_valid
+  end
+
+  it "rejects a payment account owned by another user" do
+    card = build(:credit_card, user: create(:user), payment_account: create(:account))
+    expect(card).to be_invalid
+    expect(card.errors[:payment_account]).to include("must belong to the same user")
+  end
 
   it "rejects a negative credit limit" do
     expect(build(:credit_card, credit_limit: -1)).to be_invalid

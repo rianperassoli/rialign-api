@@ -4,7 +4,8 @@ RSpec.describe Transaction, type: :model do
   subject(:transaction) { build(:transaction) }
 
   it { is_expected.to belong_to(:user) }
-  it { is_expected.to belong_to(:category) }
+  # category is optional at the association level; presence is enforced
+  # conditionally (see "category requirement" below) so transfer legs can skip it.
   it { is_expected.to belong_to(:account).optional }
   it { is_expected.to belong_to(:credit_card).optional }
 
@@ -39,6 +40,22 @@ RSpec.describe Transaction, type: :model do
       t = build(:transaction, user:, kind: "income", account: nil, credit_card: card, category: income_cat)
       expect(t).to be_invalid
       expect(t.errors[:credit_card]).to include("can only hold expense transactions")
+    end
+  end
+
+  describe "category requirement" do
+    let(:user) { create(:user) }
+
+    it "requires a category for a regular transaction" do
+      t = build(:transaction, user:, category: nil)
+      expect(t).to be_invalid
+      expect(t.errors[:category]).to include("must be present")
+    end
+
+    it "allows a missing category on a transfer leg" do
+      t = build(:transaction, user:, category: nil, transfer_id: SecureRandom.uuid,
+                              account: create(:account, user:))
+      expect(t).to be_valid
     end
   end
 

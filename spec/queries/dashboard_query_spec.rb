@@ -31,10 +31,10 @@ RSpec.describe DashboardQuery do
     expect(result[:forecast]).to eq(income: 0, expense: 800)
   end
 
-  it "groups expenses by category (paid + pending), biggest first" do
+  it "groups expenses by category (paid + pending) with name/color, biggest first" do
     expect(result[:by_category]).to eq([
-                                         { category_id: rent.id, total: 800 },
-                                         { category_id: food.id, total: 200 }
+                                         { category_id: rent.id, name: rent.name, color: rent.color, total: 800 },
+                                         { category_id: food.id, name: food.name, color: food.color, total: 200 }
                                        ])
   end
 
