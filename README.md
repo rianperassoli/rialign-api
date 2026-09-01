@@ -12,12 +12,19 @@ reports, notifications, bank integrations, sharing or multi-tenant complexity.
 
 ## Requirements
 
-You only need **Docker** (Docker Desktop, or Docker Engine + Compose v2).
-Everything — Ruby 3.3, gems, PostgreSQL — runs in containers, so your host Ruby
-version does not matter.
+- **Ruby 3.3.0** on the host (see `.ruby-version`). Install it with
+  [rbenv](https://github.com/rbenv/rbenv), which manages **Ruby only** and does
+  not touch an existing `nvm`/Node setup:
 
-> Running without Docker is possible but requires Ruby **3.3** and a local
-> PostgreSQL. Most hosts ship an older Ruby, so Docker is the supported path.
+  ```bash
+  brew install rbenv ruby-build
+  echo 'eval "$(rbenv init - zsh)"' >> ~/.zshrc && exec zsh
+  rbenv install 3.3.0           # picked up automatically via .ruby-version
+  ```
+
+- **Docker** (Docker Desktop, or Docker Engine + Compose v2) — used *only* to
+  run PostgreSQL locally. The app itself always runs natively, in development
+  and in production; there is no application image and no `Dockerfile`.
 
 ---
 
@@ -26,13 +33,14 @@ version does not matter.
 ```bash
 cd rialign-api
 cp .env.example .env          # sane defaults; edit if needed
-docker compose build
-docker compose up             # API on http://localhost:3000
+bundle install
+docker compose up -d          # starts PostgreSQL on localhost:5432
+bin/rails db:prepare          # create databases, load schema, seed demo data
+bin/rails server              # API on http://localhost:3000
 ```
 
-On the **first** `docker compose up`, the entrypoint automatically runs
-`db:prepare`, which creates the databases, loads the schema **and seeds demo
-data** (because the DB is brand new). You'll see:
+`db:prepare` creates the databases, loads the schema **and seeds demo data**
+(because the DB is brand new). You'll see:
 
 ```
 Created database 'rialign_development'
@@ -50,20 +58,20 @@ That's it — the API is live with a demo account.
 Seeds are idempotent, so you can run them any time:
 
 ```bash
-docker compose run --rm api bin/rails db:seed
+bin/rails db:seed
 ```
 
 ### Resetting the database
 
 ```bash
-docker compose run --rm api bin/rails db:reset   # drop, recreate, load schema, seed
+bin/rails db:reset   # drop, recreate, load schema, seed
 ```
 
 ---
 
 ## Try it end to end
 
-With the server running (`docker compose up`):
+With the server running (`bin/rails server`):
 
 ```bash
 # 1. Health check (no auth) -> empty 200
@@ -115,28 +123,33 @@ and the card's `open_invoice`.
 
 | Task | Command |
 |------|---------|
-| Start the API | `docker compose up` |
-| Stop & remove containers | `docker compose down` |
-| Run the test suite + coverage | `docker compose run --rm api bundle exec rspec` |
-| Lint | `docker compose run --rm api bundle exec rubocop` |
-| Rails console | `docker compose run --rm api bin/rails console` |
-| Run migrations | `docker compose run --rm api bin/rails db:migrate` |
-| Seed demo data | `docker compose run --rm api bin/rails db:seed` |
-| Reset the DB | `docker compose run --rm api bin/rails db:reset` |
+| Start PostgreSQL | `docker compose up -d` |
+| Stop PostgreSQL | `docker compose down` |
+| Start the API | `bin/rails server` |
+| Run the test suite + coverage | `bundle exec rspec` |
+| Lint | `bundle exec rubocop` |
+| Rails console | `bin/rails console` |
+| Run migrations | `bin/rails db:migrate` |
+| Seed demo data | `bin/rails db:seed` |
+| Reset the DB | `bin/rails db:reset` |
 
-`docker compose run --rm api …` runs a one-off command in a throwaway container
-against the already-running `db`.
+The `db` service is `restart: unless-stopped`, so once started it comes back on
+its own whenever Docker starts — `docker compose up -d` is a one-time step, not
+part of the daily loop. Day to day you only run `bin/rails server`.
+
+Postgres data lives in the `pg_data` volume and survives both `docker compose
+down` and a container recreation; use `docker compose down -v` to wipe it.
 
 ---
 
 ## Configuration (environment variables)
 
-Defined in `.env` (copied from `.env.example`). In Docker, the database values
-are also set directly in `docker-compose.yml`.
+Defined in `.env` (copied from `.env.example`) and loaded by `dotenv-rails` in
+development and test.
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `DATABASE_HOST` | `localhost` (`db` in Docker) | Postgres host |
+| `DATABASE_HOST` | `localhost` | Postgres host |
 | `DATABASE_PORT` | `5432` | Postgres port |
 | `DATABASE_USERNAME` | `postgres` | Postgres user |
 | `DATABASE_PASSWORD` | `postgres` | Postgres password |
@@ -233,7 +246,7 @@ RSpec + FactoryBot + Shoulda-matchers; SimpleCov (branch coverage) is wired and
 grouped by layer (Services / Queries / Serializers / Policies).
 
 ```bash
-docker compose run --rm api bundle exec rspec
+bundle exec rspec
 ```
 
 The suite currently passes (model, service and request examples included). The
