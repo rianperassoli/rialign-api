@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_01_01_000009) do
+ActiveRecord::Schema[8.0].define(version: 2026_09_01_194506) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -64,7 +64,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_01_000009) do
     t.string "kind", null: false
     t.decimal "amount", precision: 14, scale: 2, null: false
     t.date "date", null: false
-    t.boolean "paid", default: true, null: false
+    t.boolean "paid", null: false
     t.text "notes"
     t.datetime "archived_at"
     t.datetime "created_at", null: false

@@ -28,6 +28,9 @@ RSpec.configure do |config|
 
   # FactoryBot DSL: build(:user) instead of FactoryBot.build(:user).
   config.include FactoryBot::Syntax::Methods
+  # Lets specs pin Date.current where behaviour depends on today's position in
+  # a billing cycle (see CreditCard#open_invoice).
+  config.include ActiveSupport::Testing::TimeHelpers
 
   # Request spec auth helper.
   config.include AuthHelpers, type: :request

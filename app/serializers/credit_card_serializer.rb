@@ -10,15 +10,20 @@ class CreditCardSerializer < ApplicationSerializer
       due_day: object.due_day,
       payment_account_id: object.payment_account_id,
       open_invoice: open_invoice,
-      available_limit: object.credit_limit - open_invoice,
+      available_limit: available_limit,
       archived: object.archived?,
       created_at: object.created_at
     }
   end
 
+  # Both are precomputed by Accounts::BalanceCalculator on the dashboard so the
+  # collection does not re-query per card; standalone renders fall back to the
+  # model.
   def open_invoice
-    opts.fetch(:open_invoice) do
-      object.transactions.expense.pending.sum(:amount)
-    end
+    opts.fetch(:open_invoice) { object.open_invoice }
+  end
+
+  def available_limit
+    opts.fetch(:available_limit) { object.available_limit }
   end
 end

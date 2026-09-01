@@ -69,6 +69,33 @@ RSpec.describe Transaction, type: :model do
     end
   end
 
+  # `paid` has no column default: nil means "the caller did not say", and the
+  # model fills it in from the source. A card charge is money not yet spent.
+  describe "paid default" do
+    let(:user) { create(:user) }
+    let(:card) { create(:credit_card, user:) }
+
+    def card_charge(paid:)
+      create(:transaction, user:, account: nil, credit_card: card, paid:)
+    end
+
+    it "leaves a card charge pending when paid is not given" do
+      expect(card_charge(paid: nil)).not_to be_paid
+    end
+
+    it "settles an account expense when paid is not given" do
+      expect(create(:transaction, user:, paid: nil)).to be_paid
+    end
+
+    it "respects an explicitly settled card charge" do
+      expect(card_charge(paid: true)).to be_paid
+    end
+
+    it "respects an explicitly pending account expense" do
+      expect(create(:transaction, user:, paid: false)).not_to be_paid
+    end
+  end
+
   describe "soft delete" do
     it "archives instead of deleting" do
       t = create(:transaction)

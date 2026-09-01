@@ -30,7 +30,8 @@ class DashboardSerializer < ApplicationSerializer
 
   def serialized_cards
     balances[:credit_cards].map do |row|
-      CreditCardSerializer.new(row[:credit_card], open_invoice: row[:open_invoice]).as_json
+      CreditCardSerializer.new(row[:credit_card], open_invoice: row[:open_invoice],
+                                                  available_limit: row[:available_limit]).as_json
     end
   end
 end

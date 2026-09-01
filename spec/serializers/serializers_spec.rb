@@ -44,8 +44,9 @@ RSpec.describe "Serializers" do
       expect(json[:available_limit]).to eq(750)
     end
 
-    it "accepts a provided open_invoice" do
-      json = described_class.new(card, open_invoice: 100).as_json
+    it "accepts precomputed values to avoid recomputation" do
+      json = described_class.new(card, open_invoice: 100, available_limit: 900).as_json
+      expect(json[:open_invoice]).to eq(100)
       expect(json[:available_limit]).to eq(900)
     end
   end

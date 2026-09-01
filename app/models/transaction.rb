@@ -43,6 +43,8 @@ class Transaction < ApplicationRecord
             numericality: { only_integer: true, greater_than: 1 },
             allow_nil: true
 
+  before_validation :default_paid_by_source, on: :create
+
   validate :exactly_one_source
   validate :category_required
   validate :category_kind_matches
@@ -78,6 +80,23 @@ class Transaction < ApplicationRecord
   end
 
   private
+
+  # `paid` means different things depending on the source, so the default
+  # depends on it too: money leaving an account is settled on the spot, while a
+  # card charge stays pending until the invoice is paid (only pending charges
+  # make up the open invoice — settling them on creation is what made the
+  # invoice read zero).
+  #
+  # The column has no default, so an unset `paid` arrives here as nil and only
+  # then is filled in. Any boolean default would collide with one of the two
+  # explicit values and swallow it, so `paid: true` on a card charge (an
+  # imported or already-settled purchase) is respected, and so is `paid: false`
+  # on an account expense (a scheduled payment).
+  def default_paid_by_source
+    return unless paid.nil?
+
+    self.paid = credit_card_id.blank?
+  end
 
   # Every regular transaction needs a real category; transfer legs intentionally
   # carry none. Checking the loaded record (not just the id) also rejects a

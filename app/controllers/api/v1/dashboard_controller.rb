@@ -20,7 +20,8 @@ module Api
             consolidated_balance: result[:consolidated_balance],
             accounts: result[:accounts].map { |r| AccountSerializer.new(r[:account], balance: r[:balance]).as_json },
             credit_cards: result[:credit_cards].map do |r|
-              CreditCardSerializer.new(r[:credit_card], open_invoice: r[:open_invoice]).as_json
+              CreditCardSerializer.new(r[:credit_card], open_invoice: r[:open_invoice],
+                                                        available_limit: r[:available_limit]).as_json
             end
           }
         }

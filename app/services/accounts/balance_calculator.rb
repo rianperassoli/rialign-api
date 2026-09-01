@@ -6,7 +6,8 @@ module Accounts
   #  - Account balance counts only PAID transactions booked to that account:
   #      initial_balance + sum(income) - sum(expense)
   #  - Consolidated balance = sum of every (kept) account balance.
-  #  - A credit card's open invoice = sum of UNPAID expenses booked to it.
+  #  - A credit card open invoice = pending expenses up to the current closing
+  #    date; available limit subtracts ALL pending charges (see CreditCard).
   class BalanceCalculator < ApplicationService
     def initialize(user:)
       @user = user
@@ -40,8 +41,7 @@ module Accounts
 
     def credit_card_invoices
       @user.credit_cards.map do |card|
-        open_invoice = card.transactions.expense.pending.sum(:amount)
-        { credit_card: card, open_invoice:, available_limit: card.credit_limit - open_invoice }
+        { credit_card: card, open_invoice: card.open_invoice, available_limit: card.available_limit }
       end
     end
   end
