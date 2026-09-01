@@ -13,7 +13,7 @@ module Api
         result = Transfers::CreateTransfer.call(user: current_user, params: transfer_params)
         if result.failure?
           return render_error("Could not create transfer", status: :unprocessable_entity,
-                                                            errors: result.errors)
+                                                           errors: result.errors)
         end
 
         head :created

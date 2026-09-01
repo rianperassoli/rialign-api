@@ -32,7 +32,10 @@ module CreditCards
 
       settlement = nil
       ApplicationRecord.transaction do
-        pending.update_all(paid: true, updated_at: Time.current)
+        # Bulk update on purpose: flipping `paid` has no validations or callbacks
+        # to run, and an invoice can cover hundreds of rows. updated_at is set
+        # explicitly since update_all skips timestamping.
+        pending.update_all(paid: true, updated_at: Time.current) # rubocop:disable Rails/SkipsModelValidations
         settlement = build_settlement(account:, total:)
         settlement.save!
       end

@@ -22,7 +22,9 @@ RSpec.describe "Api::V1::Transfers", type: :request do
 
   describe "GET /api/v1/transfers" do
     it "lists one row per transfer" do
-      Transfers::CreateTransfer.call(user:, params: { from_account_id: from.id, to_account_id: to.id, amount: 100, date: Date.current })
+      Transfers::CreateTransfer.call(user:,
+                                     params: { from_account_id: from.id,
+                                               to_account_id: to.id, amount: 100, date: Date.current })
       get "/api/v1/transfers", headers: auth_headers(user)
       expect(response).to have_http_status(:ok)
       expect(json["data"].size).to eq(1)
@@ -32,7 +34,11 @@ RSpec.describe "Api::V1::Transfers", type: :request do
 
   describe "DELETE /api/v1/transfers/:id" do
     it "removes both legs" do
-      result = Transfers::CreateTransfer.call(user:, params: { from_account_id: from.id, to_account_id: to.id, amount: 100, date: Date.current })
+      result = Transfers::CreateTransfer.call(user:,
+                                              params: {
+                                                from_account_id: from.id, to_account_id: to.id,
+                                                amount: 100, date: Date.current
+                                              })
       transfer_id = result.data[:transfer_id]
 
       delete "/api/v1/transfers/#{transfer_id}", headers: auth_headers(user)
