@@ -14,6 +14,9 @@ gem "jwt", "~> 2.8"
 gem "pagy", "~> 9.0"          # pagination
 gem "rack-cors"               # CORS
 
+# Imports
+gem "spreadsheet", "~> 1.3" # reads the legacy BIFF .xls Organizze exports
+
 # Boot performance
 gem "bootsnap", require: false
 

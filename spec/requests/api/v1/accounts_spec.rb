@@ -68,6 +68,44 @@ RSpec.describe "Api::V1::Accounts", type: :request do
     end
   end
 
+  describe "exclude_from_total" do
+    it "is exposed and can be set" do
+      account = create(:account, user:)
+      patch "/api/v1/accounts/#{account.id}",
+            params: { account: { exclude_from_total: true } }.to_json,
+            headers: auth_headers(user)
+
+      expect(response).to have_http_status(:ok)
+      expect(json.dig("data", "exclude_from_total")).to be(true)
+      expect(account.reload.exclude_from_total).to be(true)
+    end
+  end
+
+  describe "archiving" do
+    it "lists archived accounts with ?archived=true" do
+      kept = create(:account, user:, name: "Kept")
+      archived = create(:account, user:, name: "Gone")
+      archived.archive!
+
+      get "/api/v1/accounts?archived=true", headers: auth_headers(user)
+
+      names = json["data"].pluck("name")
+      expect(names).to eq(["Gone"])
+      expect(names).not_to include(kept.name)
+    end
+
+    it "restores an archived account" do
+      account = create(:account, user:)
+      account.archive!
+
+      post "/api/v1/accounts/#{account.id}/restore", headers: auth_headers(user)
+
+      expect(response).to have_http_status(:ok)
+      expect(account.reload).not_to be_archived
+      expect(json.dig("data", "archived")).to be(false)
+    end
+  end
+
   describe "DELETE /api/v1/accounts/:id" do
     it "soft deletes and returns 204" do
       account = create(:account, user:)

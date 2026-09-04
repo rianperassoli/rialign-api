@@ -13,12 +13,14 @@ RSpec.describe "Api::V1::CreditCards invoices", type: :request do
                          amount: 40, date: Date.new(2026, 6, 5), paid: false)
   end
 
+  # Closing on the 20th and due on the 1st, so the invoice due in June is the
+  # cycle 21/04 to 20/05 — the one holding the 05/05 charge.
   describe "GET /api/v1/credit_cards/:id/invoice" do
     it "returns the requested month's cycle" do
-      get "/api/v1/credit_cards/#{card.id}/invoice?month=2026-05", headers: auth_headers(user)
+      get "/api/v1/credit_cards/#{card.id}/invoice?month=2026-06", headers: auth_headers(user)
 
       expect(response).to have_http_status(:ok)
-      expect(json.dig("data", "month")).to eq("2026-05")
+      expect(json.dig("data", "month")).to eq("2026-06")
       expect(json.dig("data", "total").to_f).to eq(100)
       expect(json.dig("data", "due_date")).to eq("2026-06-01")
       expect(json.dig("data", "transactions").size).to eq(1)
@@ -42,7 +44,7 @@ RSpec.describe "Api::V1::CreditCards invoices", type: :request do
   describe "POST /api/v1/credit_cards/:id/pay_invoice with a month" do
     it "settles only charges up to that invoice's closing date" do
       post "/api/v1/credit_cards/#{card.id}/pay_invoice",
-           params: { payment: { month: "2026-05" } }.to_json,
+           params: { payment: { month: "2026-06" } }.to_json,
            headers: auth_headers(user)
 
       expect(response).to have_http_status(:created)

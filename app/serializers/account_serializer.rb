@@ -11,6 +11,7 @@ class AccountSerializer < ApplicationSerializer
       account_type: object.account_type,
       initial_balance: object.initial_balance,
       current_balance: current_balance,
+      exclude_from_total: object.exclude_from_total,
       archived: object.archived?,
       created_at: object.created_at
     }

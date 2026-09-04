@@ -38,7 +38,8 @@ RSpec.describe "Serializers" do
     let(:card) { create(:credit_card, user:, credit_limit: 1000) }
 
     it "computes the open invoice and available limit" do
-      create(:transaction, user:, account: nil, credit_card: card, amount: 250, paid: false)
+      # Dated into a closed cycle so it is part of the invoice being billed now.
+      create(:transaction, user:, account: nil, credit_card: card, amount: 250, paid: false, date: 2.months.ago)
       json = described_class.new(card).as_json
       expect(json[:open_invoice]).to eq(250)
       expect(json[:available_limit]).to eq(750)

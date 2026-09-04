@@ -5,9 +5,12 @@ module Accounts
   # Conventions:
   #  - Account balance counts only PAID transactions booked to that account:
   #      initial_balance + sum(income) - sum(expense)
-  #  - Consolidated balance = sum of every (kept) account balance.
+  #  - Consolidated balance = sum of every (kept) account balance, skipping the
+  #    ones flagged `exclude_from_total`. Those still report their own balance;
+  #    they just do not feed the headline number.
   #  - A credit card open invoice = pending expenses up to the current closing
-  #    date; available limit subtracts ALL pending charges (see CreditCard).
+  #    date; the next invoice is what has accumulated after it; available limit
+  #    subtracts ALL pending charges (see CreditCard).
   class BalanceCalculator < ApplicationService
     def initialize(user:)
       @user = user
@@ -36,12 +39,13 @@ module Accounts
     end
 
     def consolidated_balance
-      account_balances.sum { |row| row[:balance] }
+      account_balances.sum { |row| row[:account].exclude_from_total? ? 0 : row[:balance] }
     end
 
     def credit_card_invoices
       @user.credit_cards.map do |card|
-        { credit_card: card, open_invoice: card.open_invoice, available_limit: card.available_limit }
+        { credit_card: card, open_invoice: card.open_invoice, next_invoice: card.next_invoice,
+          available_limit: card.available_limit }
       end
     end
   end

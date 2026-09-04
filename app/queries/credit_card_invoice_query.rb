@@ -1,9 +1,12 @@
 # Resolves a credit card's invoice for a given reference month.
 #
-# The invoice labelled "July" gathers the card expenses in the cycle that
-# CLOSES in July: (June closing, July closing]. `closing_day`/`due_day` are
-# clamped for short months, and the due date rolls into the next month when
-# the card is due before it closes (the common closing 28 / due 5 setup).
+# An invoice is named after the month it is DUE, which is how Organizze names
+# them and how people refer to them ("the July bill" is the one you pay in
+# July). The charges it gathers are the cycle that closes BEFORE that due date:
+# with the common closing 28 / due 5 setup, the July invoice covers
+# (May closing, June closing]. When the card is due after it closes in the same
+# month, the cycle closes in the due month itself. Both days are clamped for
+# short months.
 #
 # Status:
 #   paid   - the cycle has charges and none is pending
@@ -35,18 +38,28 @@ class CreditCardInvoiceQuery
   end
 
   def period
-    @period ||= { from: closing_date_in(@month << 1) + 1, to: closing_date_in(@month) }
+    @period ||= { from: closing_date_in(closing_month << 1) + 1, to: closing_date_in(closing_month) }
+  end
+
+  # Closing date falling in `month`, clamped for short months.
+  def self.closing_date_in(card, month)
+    Date.new(month.year, month.month, [card.closing_day, month.end_of_month.day].min)
   end
 
   private
 
+  # The cycle billed in @month closes in @month when the card is due after it
+  # closes, and in the month before otherwise.
+  def closing_month
+    @closing_month ||= @card.due_day > @card.closing_day ? @month : @month << 1
+  end
+
   def closing_date_in(month)
-    Date.new(month.year, month.month, [@card.closing_day, month.end_of_month.day].min)
+    self.class.closing_date_in(@card, month)
   end
 
   def due_date
-    base = @card.due_day > @card.closing_day ? @month : @month >> 1
-    Date.new(base.year, base.month, [@card.due_day, base.end_of_month.day].min)
+    Date.new(@month.year, @month.month, [@card.due_day, @month.end_of_month.day].min)
   end
 
   def status(total:, pending:)

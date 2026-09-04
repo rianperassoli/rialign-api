@@ -9,7 +9,12 @@ Rails.application.routes.draw do
       post "auth/login",    to: "authentication#login"
       get  "auth/me",       to: "authentication#me"
 
-      resources :accounts, except: %i[new edit]
+      resources :imports, only: %i[index show create] do
+        member { post :confirm }
+      end
+      resources :accounts, except: %i[new edit] do
+        member { post :restore }
+      end
       resources :credit_cards, except: %i[new edit] do
         member do
           get  :invoice

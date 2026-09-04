@@ -10,6 +10,7 @@ class CreditCardSerializer < ApplicationSerializer
       due_day: object.due_day,
       payment_account_id: object.payment_account_id,
       open_invoice: open_invoice,
+      next_invoice: next_invoice,
       available_limit: available_limit,
       archived: object.archived?,
       created_at: object.created_at
@@ -21,6 +22,10 @@ class CreditCardSerializer < ApplicationSerializer
   # model.
   def open_invoice
     opts.fetch(:open_invoice) { object.open_invoice }
+  end
+
+  def next_invoice
+    opts.fetch(:next_invoice) { object.next_invoice }
   end
 
   def available_limit

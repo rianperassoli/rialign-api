@@ -21,6 +21,7 @@ module Api
             accounts: result[:accounts].map { |r| AccountSerializer.new(r[:account], balance: r[:balance]).as_json },
             credit_cards: result[:credit_cards].map do |r|
               CreditCardSerializer.new(r[:credit_card], open_invoice: r[:open_invoice],
+                                                        next_invoice: r[:next_invoice],
                                                         available_limit: r[:available_limit]).as_json
             end
           }

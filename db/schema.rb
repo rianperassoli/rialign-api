@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_09_01_194506) do
+ActiveRecord::Schema[8.0].define(version: 2026_09_02_163325) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -23,6 +23,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_09_01_194506) do
     t.datetime "archived_at"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.boolean "exclude_from_total", default: false, null: false
     t.index ["archived_at"], name: "index_accounts_on_archived_at"
     t.index ["user_id"], name: "index_accounts_on_user_id"
   end
@@ -53,6 +54,21 @@ ActiveRecord::Schema[8.0].define(version: 2026_09_01_194506) do
     t.index ["archived_at"], name: "index_credit_cards_on_archived_at"
     t.index ["payment_account_id"], name: "index_credit_cards_on_payment_account_id"
     t.index ["user_id"], name: "index_credit_cards_on_user_id"
+  end
+
+  create_table "imports", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.string "status", default: "pending", null: false
+    t.string "filename", null: false
+    t.string "file_path", null: false
+    t.jsonb "report", default: {}, null: false
+    t.string "error_message"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.jsonb "preview", default: {}, null: false
+    t.jsonb "settings", default: {}, null: false
+    t.index ["user_id", "created_at"], name: "index_imports_on_user_id_and_created_at"
+    t.index ["user_id"], name: "index_imports_on_user_id"
   end
 
   create_table "transactions", force: :cascade do |t|
@@ -97,6 +113,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_09_01_194506) do
   add_foreign_key "categories", "users"
   add_foreign_key "credit_cards", "accounts", column: "payment_account_id"
   add_foreign_key "credit_cards", "users"
+  add_foreign_key "imports", "users"
   add_foreign_key "transactions", "accounts"
   add_foreign_key "transactions", "categories"
   add_foreign_key "transactions", "credit_cards"

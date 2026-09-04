@@ -14,9 +14,13 @@ class CreditCard < ApplicationRecord
             numericality: { only_integer: true, in: 1..31 }
   validate :payment_account_belongs_to_user
 
-  # Closing date of the cycle currently being billed.
+  # The most recent closing that has already happened — the invoice you are
+  # being billed for right now. Charges made after it are accumulating into the
+  # next one and are not part of what is currently owed.
   def current_closing_date
-    CreditCardInvoiceQuery.new(self).period[:to]
+    today = Date.current
+    this_month = CreditCardInvoiceQuery.closing_date_in(self, today)
+    this_month <= today ? this_month : CreditCardInvoiceQuery.closing_date_in(self, today << 1)
   end
 
   # What is actually owed on the open invoice: every pending charge dated up to
@@ -25,6 +29,13 @@ class CreditCard < ApplicationRecord
   # pending charges from earlier cycles are still owed and stay included.
   def open_invoice
     transactions.expense.pending.where(date: ..current_closing_date).sum(:amount)
+  end
+
+  # Charges dated after the current closing date: already made, already
+  # consuming the limit, but billed only on the NEXT invoice. Complement of
+  # #open_invoice — together they are #used_limit.
+  def next_invoice
+    transactions.expense.pending.where(date: (current_closing_date + 1)..).sum(:amount)
   end
 
   # Every pending charge consumes the limit, including the ones already booked

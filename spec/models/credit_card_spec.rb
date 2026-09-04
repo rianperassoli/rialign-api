@@ -29,9 +29,9 @@ RSpec.describe CreditCard, type: :model do
     expect(build(:credit_card, due_day: 32)).to be_invalid
   end
 
-  # The open invoice is bounded by the closing date; the limit is not. A charge
-  # made after the card closed belongs to the next invoice, but it is already
-  # spending against the limit.
+  # The open invoice is bounded by the last closing that already happened — what
+  # you are billed for now. A charge made after it belongs to the next invoice,
+  # but it is already spending against the limit, which has no such bound.
   describe "invoice and limit" do
     subject(:card) { create(:credit_card, user:, closing_day: 20, due_day: 1, credit_limit: 1000) }
 
@@ -42,32 +42,51 @@ RSpec.describe CreditCard, type: :model do
       create(:transaction, user:, category:, account: nil, credit_card: card, amount:, date:, paid:)
     end
 
+    # Closing on the 20th: on 15/05 the invoice being billed is the one that
+    # closed on 20/04.
     before { travel_to Date.new(2026, 5, 15) }
 
     it "counts pending charges within the cycle" do
-      charge(100, Date.new(2026, 5, 10))
+      charge(100, Date.new(2026, 4, 10))
       expect(card.open_invoice).to eq(100)
     end
 
     it "still counts pending charges left over from an earlier cycle" do
-      charge(100, Date.new(2026, 3, 5))
+      charge(100, Date.new(2026, 2, 5))
       expect(card.open_invoice).to eq(100)
     end
 
     it "excludes charges dated after the closing date" do
+      charge(100, Date.new(2026, 4, 10))
+      charge(70, Date.new(2026, 5, 10))
+      expect(card.open_invoice).to eq(100)
+    end
+
+    it "bills the cycle that closed this month once the closing day has passed" do
+      travel_to Date.new(2026, 5, 25)
       charge(100, Date.new(2026, 5, 10))
-      charge(70, Date.new(2026, 5, 25))
       expect(card.open_invoice).to eq(100)
     end
 
     it "excludes charges already settled" do
-      charge(100, Date.new(2026, 5, 10), paid: true)
+      charge(100, Date.new(2026, 4, 10), paid: true)
       expect(card.open_invoice).to eq(0)
     end
 
+    it "gathers charges made after the closing date into the next invoice" do
+      charge(100, Date.new(2026, 4, 10))
+      charge(70, Date.new(2026, 5, 10))
+      expect(card.next_invoice).to eq(70)
+    end
+
+    it "leaves the next invoice empty when nothing was charged after closing" do
+      charge(100, Date.new(2026, 4, 10))
+      expect(card.next_invoice).to eq(0)
+    end
+
     it "consumes the limit with every pending charge, next cycle included" do
-      charge(100, Date.new(2026, 5, 10))
-      charge(70, Date.new(2026, 5, 25))
+      charge(100, Date.new(2026, 4, 10))
+      charge(70, Date.new(2026, 5, 10))
       expect(card.used_limit).to eq(170)
       expect(card.available_limit).to eq(830)
     end
