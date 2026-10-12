@@ -14,28 +14,32 @@ class CreditCard < ApplicationRecord
             numericality: { only_integer: true, in: 1..31 }
   validate :payment_account_belongs_to_user
 
-  # The most recent closing that has already happened — the invoice you are
-  # being billed for right now. Charges made after it are accumulating into the
-  # next one and are not part of what is currently owed.
-  def current_closing_date
-    today = Date.current
-    this_month = CreditCardInvoiceQuery.closing_date_in(self, today)
-    this_month <= today ? this_month : CreditCardInvoiceQuery.closing_date_in(self, today << 1)
+  # The invoice (first day of the month it is DUE) a charge made on `date`
+  # lands on by default: the cycle closing on or after it, billed in that
+  # closing month when the card is due after it closes, else the month after.
+  # A charge can still be moved to a later invoice — see Transaction#invoice_month.
+  def invoice_month_for(date)
+    closing = CreditCardInvoiceQuery.closing_date_in(self, date)
+    closing_month = date <= closing ? date.beginning_of_month : date.beginning_of_month >> 1
+    due_day > closing_day ? closing_month : closing_month >> 1
   end
 
-  # What is actually owed on the open invoice: every pending charge dated up to
-  # the current closing date. Charges dated after it were made in the next
-  # cycle and belong to the NEXT invoice, so they are excluded here — while
-  # pending charges from earlier cycles are still owed and stay included.
+  # The invoice still accumulating charges today — Organizze's "fatura atual".
+  def current_invoice_month
+    invoice_month_for(Date.current)
+  end
+
+  # What is owed up to the current invoice: its pending charges plus any left
+  # unpaid on earlier invoices (Organizze's "saldo anterior").
   def open_invoice
-    transactions.expense.pending.where(date: ..current_closing_date).sum(:amount)
+    transactions.expense.pending.where(invoice_month: ..current_invoice_month).sum(:amount)
   end
 
-  # Charges dated after the current closing date: already made, already
-  # consuming the limit, but billed only on the NEXT invoice. Complement of
-  # #open_invoice — together they are #used_limit.
+  # Pending charges already booked on later invoices (future installments,
+  # charges pushed forward): consuming the limit, but not billed yet. Complement
+  # of #open_invoice — together they are #used_limit.
   def next_invoice
-    transactions.expense.pending.where(date: (current_closing_date + 1)..).sum(:amount)
+    transactions.expense.pending.where(invoice_month: (current_invoice_month >> 1)..).sum(:amount)
   end
 
   # Every pending charge consumes the limit, including the ones already booked

@@ -72,6 +72,36 @@ RSpec.describe "Api::V1::Transactions", type: :request do
       expect(response).to have_http_status(:ok)
       expect(transaction.reload.description).to eq("Updated")
     end
+
+    it "moves a card charge to another invoice" do
+      card = create(:credit_card, user:, closing_day: 31, due_day: 10)
+      charge = create(:transaction, user:, account: nil, credit_card: card, category:, date: Date.new(2026, 10, 7))
+      patch "/api/v1/transactions/#{charge.id}",
+            params: { transaction: { invoice_month: "2026-12" } }.to_json, headers: auth_headers(user)
+      expect(response).to have_http_status(:ok)
+      expect(json.dig("data", "invoice_month")).to eq("2026-12")
+      expect(charge.reload.invoice_month).to eq(Date.new(2026, 12, 1))
+    end
+
+    it "refuses to move a card charge onto a paid invoice" do
+      card = create(:credit_card, user:, closing_day: 31, due_day: 10)
+      create(:transaction, user:, account: nil, credit_card: card, category:, date: Date.new(2026, 9, 7), paid: true)
+      charge = create(:transaction, user:, account: nil, credit_card: card, category:, date: Date.new(2026, 10, 7))
+      patch "/api/v1/transactions/#{charge.id}",
+            params: { transaction: { invoice_month: "2026-10" } }.to_json, headers: auth_headers(user)
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(charge.reload.invoice_month).to eq(Date.new(2026, 11, 1))
+    end
+
+    it "still moves a card charge onto a closed but unpaid invoice" do
+      card = create(:credit_card, user:, closing_day: 31, due_day: 10)
+      create(:transaction, user:, account: nil, credit_card: card, category:, date: Date.new(2026, 9, 7), paid: false)
+      charge = create(:transaction, user:, account: nil, credit_card: card, category:, date: Date.new(2026, 10, 7))
+      patch "/api/v1/transactions/#{charge.id}",
+            params: { transaction: { invoice_month: "2026-10" } }.to_json, headers: auth_headers(user)
+      expect(response).to have_http_status(:ok)
+      expect(charge.reload.invoice_month).to eq(Date.new(2026, 10, 1))
+    end
   end
 
   describe "DELETE /api/v1/transactions/:id" do

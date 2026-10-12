@@ -81,6 +81,18 @@ RSpec.describe Imports::OrganizzeImport do
       import({ "NuBank - Cartão" => [["01.08.2026", "Sem fatura", "Compras", -40.0, ""]] })
       expect(user.transactions.sole).not_to be_paid
     end
+
+    # A charge pushed to a later invoice in Organizze must stay there, not be
+    # pulled back to the invoice its date would give.
+    it "keeps the invoice named in the file" do
+      import({ "NuBank - Cartão" => [["30.09.2026", "Adiada", "Compras", -35.0, "Novembro/2026"]] })
+      expect(user.transactions.sole.invoice_month).to eq(Date.new(2026, 11, 1))
+    end
+
+    it "falls back to the date's invoice when the file names none" do
+      import({ "NuBank - Cartão" => [["30.09.2026", "Quitada", "Compras", -35.0, "Pago"]] })
+      expect(user.transactions.sole.invoice_month).to eq(Date.new(2026, 10, 1))
+    end
   end
 
   describe "categories" do

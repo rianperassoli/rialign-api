@@ -44,12 +44,14 @@ class Transaction < ApplicationRecord
             allow_nil: true
 
   before_validation :default_paid_by_source, on: :create
+  before_validation :assign_invoice_month
 
   validate :exactly_one_source
   validate :category_required
   validate :category_kind_matches
   validate :credit_card_only_for_expenses
   validate :installment_fields_consistent
+  validate :invoice_month_not_paid, on: :update
 
   def income?
     kind == "income"
@@ -74,6 +76,13 @@ class Transaction < ApplicationRecord
     series_id.present? && !installment?
   end
 
+  # Accepts the "YYYY-MM" label the API speaks (an invoice is a month), as well
+  # as a full date.
+  def invoice_month=(value)
+    value = "#{value}-01" if value.is_a?(String) && value.match?(/\A\d{4}-\d{2}\z/)
+    super
+  end
+
   # Signed value for balance math: income adds, expense subtracts.
   def signed_amount
     income? ? amount : -amount
@@ -96,6 +105,21 @@ class Transaction < ApplicationRecord
     return unless paid.nil?
 
     self.paid = credit_card_id.blank?
+  end
+
+  # A card charge belongs to one invoice, stored as the first day of the month
+  # it is due. It defaults to the invoice the date falls in, and follows the
+  # date or card when either changes — unless the invoice is set explicitly in
+  # the same change, which is how a charge is pushed to a later invoice (and
+  # how an import keeps the invoice the file names).
+  def assign_invoice_month
+    if credit_card.nil?
+      self.invoice_month = nil
+    elsif invoice_month.nil? || ((date_changed? || credit_card_id_changed?) && !invoice_month_changed?)
+      self.invoice_month = credit_card.invoice_month_for(date) if date
+    else
+      self.invoice_month = invoice_month.beginning_of_month
+    end
   end
 
   # Every regular transaction needs a real category; transfer legs intentionally
@@ -124,6 +148,17 @@ class Transaction < ApplicationRecord
     return if credit_card_id.blank? || expense?
 
     errors.add(:credit_card, "can only hold expense transactions")
+  end
+
+  # A charge cannot be moved onto an invoice that is already paid: it would
+  # reopen a bill that was settled. A closed but unpaid invoice is fine. Only
+  # moves are checked — creating a charge (an import, a backdated purchase)
+  # files it wherever it belongs.
+  def invoice_month_not_paid
+    return unless credit_card && invoice_month && invoice_month_changed?
+    return unless CreditCardInvoiceQuery.paid?(credit_card, invoice_month, except: id)
+
+    errors.add(:invoice_month, "is already paid")
   end
 
   # Installment legs must carry number + total + the shared series id, and the

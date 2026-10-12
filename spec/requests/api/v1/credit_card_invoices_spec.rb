@@ -26,18 +26,38 @@ RSpec.describe "Api::V1::CreditCards invoices", type: :request do
       expect(json.dig("data", "transactions").size).to eq(1)
     end
 
-    it "defaults to the current month when the param is missing" do
+    it "says whether the invoices either side are paid" do
+      create(:transaction, user:, category:, account: nil, credit_card: card,
+                           amount: 10, date: Date.new(2026, 4, 5), paid: true)
+
+      get "/api/v1/credit_cards/#{card.id}/invoice?month=2026-06", headers: auth_headers(user)
+
+      expect(json.dig("data", "previous_paid")).to be(true)
+      expect(json.dig("data", "next_paid")).to be(false)
+    end
+
+    it "defaults to the invoice accumulating charges today when the param is missing" do
       get "/api/v1/credit_cards/#{card.id}/invoice", headers: auth_headers(user)
 
       expect(response).to have_http_status(:ok)
-      expect(json.dig("data", "month")).to eq(Date.current.strftime("%Y-%m"))
+      expect(json.dig("data", "month")).to eq(card.current_invoice_month.strftime("%Y-%m"))
     end
 
-    it "defaults to the current month when the param is invalid" do
+    it "defaults to the invoice accumulating charges today when the param is invalid" do
       get "/api/v1/credit_cards/#{card.id}/invoice?month=bogus", headers: auth_headers(user)
 
       expect(response).to have_http_status(:ok)
-      expect(json.dig("data", "month")).to eq(Date.current.strftime("%Y-%m"))
+      expect(json.dig("data", "month")).to eq(card.current_invoice_month.strftime("%Y-%m"))
+    end
+
+    it "lists a charge pushed to a later invoice on that invoice, not its date's" do
+      pushed = create(:transaction, user:, category:, account: nil, credit_card: card, amount: 25,
+                                    date: Date.new(2026, 5, 10), paid: false, invoice_month: Date.new(2026, 7, 1))
+
+      get "/api/v1/credit_cards/#{card.id}/invoice?month=2026-07", headers: auth_headers(user)
+
+      expect(json.dig("data", "transactions").pluck("id")).to include(pushed.id)
+      expect(json.dig("data", "transactions").pluck("invoice_month").uniq).to eq(["2026-07"])
     end
   end
 

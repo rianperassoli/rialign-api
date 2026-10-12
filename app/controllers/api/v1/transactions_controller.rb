@@ -73,7 +73,7 @@ module Api
       def transaction_params
         params.expect(
           transaction: %i[description kind amount date paid notes
-                          category_id account_id credit_card_id]
+                          category_id account_id credit_card_id invoice_month]
         )
       end
 

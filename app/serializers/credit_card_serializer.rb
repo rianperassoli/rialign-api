@@ -9,6 +9,7 @@ class CreditCardSerializer < ApplicationSerializer
       closing_day: object.closing_day,
       due_day: object.due_day,
       payment_account_id: object.payment_account_id,
+      current_invoice_month: object.current_invoice_month.strftime("%Y-%m"),
       open_invoice: open_invoice,
       next_invoice: next_invoice,
       available_limit: available_limit,

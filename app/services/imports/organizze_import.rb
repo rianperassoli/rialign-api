@@ -13,7 +13,9 @@ module Imports
   #    stored amount is always positive (`kind` carries the direction).
   #  - `Situação` is "Pago" on every account row, and the invoice month on every
   #    card row — it is the invoice a charge belongs to, NOT a payment status.
-  #    Card charges are settled when their invoice is older than `open_from`.
+  #    Card charges keep that invoice (Organizze lets a charge be pushed to a
+  #    later one, so it cannot be re-derived from the date) and are settled
+  #    when it is older than `open_from`.
   #    Both sides name an invoice after the month it is DUE, so the label in the
   #    file is the same label CreditCardInvoiceQuery uses.
   #  - `Transferências` and `Pagamento de fatura` are money movements, not
@@ -122,15 +124,22 @@ module Imports
         amount: amount.abs,
         date: date,
         notes: row[6].presence,
-        account: card ? nil : source,
-        credit_card: card ? source : nil,
-        paid: card ? settled_invoice?(row[4]) : true
+        **source_attributes(row, source:, card:)
       }
       if TRANSFER_CATEGORIES.include?(row[2].to_s.strip)
         base.merge(transfer_id: SecureRandom.uuid)
       else
         base.merge(category: category_for(row[2], kind))
       end
+    end
+
+    # A card charge keeps the invoice the file names (nil falls back to the one
+    # its date gives) and is settled by it; an account row is always settled.
+    def source_attributes(row, source:, card:)
+      return { account: source, paid: true } unless card
+
+      { credit_card: source, invoice_month: OrganizzeFormat.parse_invoice_month(row[4]),
+        paid: settled_invoice?(row[4]) }
     end
 
     # Anything on an invoice older than `open_from` has already been paid. A row

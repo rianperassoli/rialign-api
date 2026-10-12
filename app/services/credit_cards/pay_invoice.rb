@@ -11,8 +11,8 @@ module CreditCards
   # The account defaults to the card's `payment_account`, but an explicit
   # `account_id` can override it (e.g. paying from a different account once).
   #
-  # With a `month` (YYYY-MM) param only the charges up to that invoice's
-  # closing date are settled — later cycles stay open. Without it, every
+  # With a `month` (YYYY-MM) param only the charges on that invoice and earlier
+  # ones still unpaid are settled — later invoices stay open. Without it, every
   # pending charge on the card is settled.
   class PayInvoice < ApplicationService
     def initialize(user:, credit_card:, params: {})
@@ -26,7 +26,7 @@ module CreditCards
       return failure("No payment account set for this card") if account.nil?
 
       pending = @card.transactions.expense.pending
-      pending = pending.where(date: ..invoice_closing_date) if invoice_closing_date
+      pending = pending.where(invoice_month: ..invoice_month) if invoice_month
       total = pending.sum(:amount)
       return failure("No open invoice to pay") if total.zero?
 
@@ -46,17 +46,13 @@ module CreditCards
 
     private
 
-    # Closing date of the requested invoice month, or nil to pay everything.
-    def invoice_closing_date
-      return @invoice_closing_date if defined?(@invoice_closing_date)
+    # The requested invoice month, or nil to pay everything.
+    def invoice_month
+      return @invoice_month if defined?(@invoice_month)
 
-      @invoice_closing_date =
-        if @params[:month].present?
-          month = Date.strptime(@params[:month].to_s, "%Y-%m")
-          CreditCardInvoiceQuery.new(@card, month: month).period[:to]
-        end
+      @invoice_month = (Date.strptime(@params[:month].to_s, "%Y-%m") if @params[:month].present?)
     rescue ArgumentError
-      @invoice_closing_date = nil
+      @invoice_month = nil
     end
 
     def resolve_account

@@ -2,16 +2,18 @@
 #
 # An invoice is named after the month it is DUE, which is how Organizze names
 # them and how people refer to them ("the July bill" is the one you pay in
-# July). The charges it gathers are the cycle that closes BEFORE that due date:
-# with the common closing 28 / due 5 setup, the July invoice covers
-# (May closing, June closing]. When the card is due after it closes in the same
-# month, the cycle closes in the due month itself. Both days are clamped for
-# short months.
+# July). Each card charge stores the invoice it belongs to
+# (Transaction#invoice_month): by default the cycle its date falls in — with the
+# common closing 28 / due 5 setup, the July invoice covers
+# (May closing, June closing] — but a charge can sit on a later invoice, e.g.
+# one pushed forward in Organizze. `period` is the nominal cycle, for display.
+# When the card is due after it closes in the same month, the cycle closes in
+# the due month itself. Both days are clamped for short months.
 #
 # Status:
-#   paid   - the cycle has charges and none is pending
+#   paid   - the invoice has charges and none is pending
 #   closed - past the closing date but still carrying pending charges
-#   open   - the cycle is still accumulating charges
+#   open   - the invoice is still accumulating charges
 class CreditCardInvoiceQuery
   def initialize(card, month: Date.current.beginning_of_month)
     @card = card
@@ -20,7 +22,7 @@ class CreditCardInvoiceQuery
 
   def call
     transactions = @card.transactions.expense
-                        .between(period[:from], period[:to])
+                        .where(invoice_month: @month)
                         .order(date: :asc, id: :asc)
     total = transactions.sum(:amount)
     pending = transactions.pending.sum(:amount)
@@ -33,8 +35,21 @@ class CreditCardInvoiceQuery
       total: total,
       pending: pending,
       status: status(total:, pending:),
+      # Whether the invoices either side are paid: a charge cannot be moved
+      # onto one (see Transaction#invoice_month_not_paid).
+      previous_paid: self.class.paid?(@card, @month << 1),
+      next_paid: self.class.paid?(@card, @month >> 1),
       transactions: transactions
     }
+  end
+
+  # An invoice is paid once it has charges and none is still pending — the
+  # same rule as the "paid" status. `except` leaves one charge out, so a charge
+  # can ask about the invoice it is being moved to.
+  def self.paid?(card, month, except: nil)
+    charges = card.transactions.expense.where(invoice_month: month.beginning_of_month)
+    charges = charges.where.not(id: except) if except
+    charges.exists? && !charges.pending.exists?
   end
 
   def period

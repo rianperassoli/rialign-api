@@ -19,11 +19,12 @@ class TransactionSerializer < ApplicationSerializer
   end
 
   # Where the transaction is booked: bank account or card, plus the transfer
-  # marker for money-movement legs.
+  # marker for money-movement legs. A card charge also names its invoice.
   def source_attributes
     {
       account_id: object.account_id,
       credit_card_id: object.credit_card_id,
+      invoice_month: object.invoice_month&.strftime("%Y-%m"),
       transfer_id: object.transfer_id
     }
   end

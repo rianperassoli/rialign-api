@@ -68,12 +68,13 @@ module Api
         params.expect(payment: %i[account_id date month])
       end
 
+      # Without a month, the invoice still accumulating charges today.
       def invoice_month
-        return Date.current.beginning_of_month if params[:month].blank?
+        return @credit_card.current_invoice_month if params[:month].blank?
 
         Date.strptime(params[:month], "%Y-%m").beginning_of_month
       rescue ArgumentError
-        Date.current.beginning_of_month
+        @credit_card.current_invoice_month
       end
     end
   end

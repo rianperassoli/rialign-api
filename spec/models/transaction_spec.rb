@@ -96,6 +96,39 @@ RSpec.describe Transaction, type: :model do
     end
   end
 
+  describe "invoice month" do
+    let(:user) { create(:user) }
+    let(:card) { create(:credit_card, user:, closing_day: 31, due_day: 10) }
+
+    def card_charge(**attrs)
+      create(:transaction, user:, account: nil, credit_card: card, date: Date.new(2026, 9, 30), **attrs)
+    end
+
+    it "defaults to the invoice the date falls in" do
+      expect(card_charge.invoice_month).to eq(Date.new(2026, 10, 1))
+    end
+
+    it "keeps an explicit invoice, normalised to the first of the month" do
+      expect(card_charge(invoice_month: Date.new(2026, 11, 15)).invoice_month).to eq(Date.new(2026, 11, 1))
+    end
+
+    it "follows the date when it changes" do
+      charge = card_charge
+      charge.update!(date: Date.new(2026, 10, 2))
+      expect(charge.invoice_month).to eq(Date.new(2026, 11, 1))
+    end
+
+    it "keeps an invoice set in the same change as the date" do
+      charge = card_charge
+      charge.update!(date: Date.new(2026, 10, 2), invoice_month: Date.new(2026, 12, 1))
+      expect(charge.invoice_month).to eq(Date.new(2026, 12, 1))
+    end
+
+    it "is cleared on an account transaction" do
+      expect(create(:transaction, user:, invoice_month: Date.new(2026, 10, 1)).invoice_month).to be_nil
+    end
+  end
+
   describe "soft delete" do
     it "archives instead of deleting" do
       t = create(:transaction)
