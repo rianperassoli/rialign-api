@@ -74,6 +74,37 @@ RSpec.describe "Api::V1::Transactions", type: :request do
     end
   end
 
+  describe "PATCH /api/v1/transactions/:id with a scope" do
+    let!(:series) do
+      Transactions::CreateSeries.call(user:, months: 3,
+                                      params: { description: "Netflix", kind: "expense", amount: 40,
+                                                date: Date.current.to_s, account_id: account.id,
+                                                category_id: category.id }).data
+    end
+
+    def patch_scoped(scope, description)
+      patch "/api/v1/transactions/#{series.first.id}?scope=#{scope}",
+            params: { transaction: { description: } }.to_json, headers: auth_headers(user)
+    end
+
+    it "edits only the occurrence by default" do
+      patch_scoped("one", "Max")
+      expect(series.map { |t| t.reload.description }).to eq(%w[Max Netflix Netflix])
+    end
+
+    it "edits the whole series with scope=series" do
+      patch_scoped("series", "Max")
+      expect(response).to have_http_status(:ok)
+      expect(series.map { |t| t.reload.description }.uniq).to eq(["Max"])
+    end
+
+    it "returns 422 when the series cannot take the change" do
+      patch "/api/v1/transactions/#{series.first.id}?scope=series",
+            params: { transaction: { amount: 0 } }.to_json, headers: auth_headers(user)
+      expect(response).to have_http_status(:unprocessable_entity)
+    end
+  end
+
   describe "PATCH /api/v1/transactions/:id" do
     it "updates a transaction" do
       transaction = create(:transaction, user:, account:, category:)

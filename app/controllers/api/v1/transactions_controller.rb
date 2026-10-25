@@ -28,7 +28,12 @@ module Api
         render_resource(first, serializer: TransactionSerializer, status: :created, meta: meta)
       end
 
+      # PATCH /api/v1/transactions/:id?scope=one|future|series
+      # On a series occurrence, `future` and `series` spread the change to the
+      # later / all occurrences (see UpdateSeries); `one` is the default.
       def update
+        return update_series if @transaction.series_id && Transactions::UpdateSeries::SCOPES.include?(params[:scope])
+
         @transaction.update!(transaction_params)
         render_resource(@transaction, serializer: TransactionSerializer)
       end
@@ -43,6 +48,17 @@ module Api
       end
 
       private
+
+      def update_series
+        result = Transactions::UpdateSeries.call(user: current_user, transaction: @transaction,
+                                                 params: transaction_params, scope: params[:scope])
+        if result.failure?
+          return render_error("Could not update transactions", status: :unprocessable_entity,
+                                                               errors: result.errors)
+        end
+
+        render_resource(result.data, serializer: TransactionSerializer)
+      end
 
       def create_result
         if params[:installments].to_i > 1
