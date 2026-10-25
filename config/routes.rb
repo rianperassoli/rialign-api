@@ -23,9 +23,9 @@ Rails.application.routes.draw do
       end
       resources :categories, except: %i[new edit]
       resources :transactions, except: %i[new edit]
-      # :id is the shared transfer_id (a uuid); transfers are create/list/delete
-      # only — editing is delete + recreate.
-      resources :transfers, only: %i[index create destroy]
+      # :id is the shared transfer_id (a uuid); show/update/destroy act on every
+      # leg of the transfer together.
+      resources :transfers, only: %i[index show create update destroy]
 
       # Dashboard / consolidated views
       get "dashboard",          to: "dashboard#show"

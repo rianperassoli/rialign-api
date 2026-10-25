@@ -19,6 +19,7 @@ class Transaction < ApplicationRecord
   include SoftDeletable
   include InvoiceSettlement
   include TransactionReferences
+  include TransferLeg
 
   KINDS = %w[income expense].freeze
 
@@ -63,11 +64,6 @@ class Transaction < ApplicationRecord
 
   def income?
     kind == "income"
-  end
-
-  # A leg of an account-to-account transfer.
-  def transfer?
-    transfer_id.present?
   end
 
   # One leg of an installment purchase (e.g. 3/12).
