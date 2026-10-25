@@ -14,6 +14,15 @@ RSpec.describe CreditCardInvoiceQuery do
     create(:transaction, user:, category:, account: nil, credit_card: card, amount:, date:, paid:)
   end
 
+  it "lists credits with the charges and nets them out of the totals" do
+    charge(100, Date.new(2026, 4, 1))
+    credit = create(:transaction, user:, kind: "income", category: create(:income_category, user:),
+                                  account: nil, credit_card: card, amount: 30, date: Date.new(2026, 4, 5), paid: false)
+
+    expect(result).to include(total: 70, pending: 70)
+    expect(result[:transactions]).to include(credit)
+  end
+
   it "spans the cycle that closes before the due date" do
     expect(result[:period]).to eq(from: Date.new(2026, 3, 21), to: Date.new(2026, 4, 20))
   end

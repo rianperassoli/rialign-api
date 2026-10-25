@@ -2,7 +2,8 @@
 #
 # A transaction is booked against EXACTLY ONE source: a bank Account or a
 # CreditCard. `amount` is always stored as a positive decimal; `kind`
-# determines its effect on balances. `paid` distinguishes settled money
+# determines its effect on balances. On a card, an expense is a charge and an
+# income is a credit (refund, "estorno") that lowers its invoice. `paid` distinguishes settled money
 # (counts toward balance) from scheduled/pending money (shown on dashboard
 # forecasts only).
 #
@@ -49,16 +50,11 @@ class Transaction < ApplicationRecord
   validate :exactly_one_source
   validate :category_required
   validate :category_kind_matches
-  validate :credit_card_only_for_expenses
   validate :installment_fields_consistent
   validate :invoice_month_not_paid, on: :update
 
   def income?
     kind == "income"
-  end
-
-  def expense?
-    kind == "expense"
   end
 
   # A leg of an account-to-account transfer.
@@ -86,6 +82,13 @@ class Transaction < ApplicationRecord
   # Signed value for balance math: income adds, expense subtracts.
   def signed_amount
     income? ? amount : -amount
+  end
+
+  # What a set of card transactions adds to the bill: charges minus credits
+  # (refunds, "estornos"). On a card an income is a credit that lowers the
+  # invoice it sits on, the same way Organizze nets it.
+  def self.charged_total
+    sum(Arel.sql("CASE WHEN transactions.kind = 'expense' THEN transactions.amount ELSE -transactions.amount END"))
   end
 
   private
@@ -142,12 +145,6 @@ class Transaction < ApplicationRecord
     return if category.blank? || category.kind == kind
 
     errors.add(:category, "kind must match the transaction kind")
-  end
-
-  def credit_card_only_for_expenses
-    return if credit_card_id.blank? || expense?
-
-    errors.add(:credit_card, "can only hold expense transactions")
   end
 
   # A charge cannot be moved onto an invoice that is already paid: it would

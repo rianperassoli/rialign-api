@@ -47,11 +47,20 @@ RSpec.describe Imports::OrganizzeImport do
     end
 
     it "skips rows the model cannot represent and counts them" do
-      result = import({ "NuBank" => [["01.08.2026", "Ajuste", "Outros", 0.0, "Pago"]],
-                        "NuBank - Cartão" => [["01.08.2026", "Estorno", "Outras receitas", 84.39, "Julho/2026"]] })
+      result = import({ "NuBank" => [["01.08.2026", "Ajuste", "Outros", 0.0, "Pago"]] })
 
-      expect(result.data).to include(skipped_zero: 1, skipped_card_credit: 1)
+      expect(result.data).to include(skipped_zero: 1)
       expect(user.transactions).to be_empty
+    end
+
+    it "keeps a positive card row as a credit on the invoice the file names" do
+      result = import({ "NuBank - Cartão" => [["01.08.2026", "Estorno", "Outras receitas", 84.39, "Julho/2026"]] })
+
+      credit = user.transactions.sole
+      expect(result.data).to include(card_credits: 1, imported: 1)
+      expect(credit).to have_attributes(kind: "income", amount: 84.39, invoice_month: Date.new(2026, 7, 1))
+      expect(credit.credit_card.name).to eq("NuBank - Cartão")
+      expect(credit.category).to have_attributes(name: "Outras receitas", kind: "income")
     end
   end
 

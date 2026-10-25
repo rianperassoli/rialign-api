@@ -30,22 +30,23 @@ class CreditCard < ApplicationRecord
   end
 
   # What is owed up to the current invoice: its pending charges plus any left
-  # unpaid on earlier invoices (Organizze's "saldo anterior").
+  # unpaid on earlier invoices (Organizze's "saldo anterior"), net of pending
+  # credits. Every sum here nets credits the same way (Transaction.charged_total).
   def open_invoice
-    transactions.expense.pending.where(invoice_month: ..current_invoice_month).sum(:amount)
+    transactions.pending.where(invoice_month: ..current_invoice_month).charged_total
   end
 
   # Pending charges already booked on later invoices (future installments,
   # charges pushed forward): consuming the limit, but not billed yet. Complement
   # of #open_invoice — together they are #used_limit.
   def next_invoice
-    transactions.expense.pending.where(invoice_month: (current_invoice_month >> 1)..).sum(:amount)
+    transactions.pending.where(invoice_month: (current_invoice_month >> 1)..).charged_total
   end
 
   # Every pending charge consumes the limit, including the ones already booked
   # into the next invoice. This is deliberately broader than #open_invoice.
   def used_limit
-    transactions.expense.pending.sum(:amount)
+    transactions.pending.charged_total
   end
 
   def available_limit

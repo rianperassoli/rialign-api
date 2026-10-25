@@ -34,12 +34,12 @@ RSpec.describe Transaction, type: :model do
       expect(t.errors[:category]).to include("kind must match the transaction kind")
     end
 
-    it "is invalid when a credit card holds a non-expense" do
+    it "accepts a credit (income) on a credit card, filed on an invoice" do
       card = create(:credit_card, user:)
       income_cat = create(:income_category, user:)
       t = build(:transaction, user:, kind: "income", account: nil, credit_card: card, category: income_cat)
-      expect(t).to be_invalid
-      expect(t.errors[:credit_card]).to include("can only hold expense transactions")
+      expect(t).to be_valid
+      expect(t.invoice_month).to eq(card.invoice_month_for(t.date))
     end
   end
 
@@ -67,6 +67,13 @@ RSpec.describe Transaction, type: :model do
     it "is negative for expense" do
       expect(build(:transaction, amount: 50).signed_amount).to eq(-50)
     end
+  end
+
+  it "leaves a dateless card charge without an invoice and invalid" do
+    user = create(:user)
+    t = build(:transaction, user:, account: nil, credit_card: create(:credit_card, user:), date: nil)
+    expect(t).to be_invalid
+    expect(t.invoice_month).to be_nil
   end
 
   # `paid` has no column default: nil means "the caller did not say", and the

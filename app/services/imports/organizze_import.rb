@@ -26,10 +26,11 @@ module Imports
   #    1 income), and Category#kind must match the transaction, so each name maps
   #    to one category PER KIND.
   #
+  #  - A positive row on a card sheet ("Estorno", "Reembolso") is a credit: an
+  #    income on the card that lowers the invoice it sits on.
+  #
   # Rows that cannot be represented are skipped and counted in the report rather
-  # than aborting the run: a zero amount (Transaction requires > 0) and a credit
-  # on a card (Transaction forbids income on a credit card — these are the 25
-  # "Estorno"/"Reembolso" rows).
+  # than aborting the run: a zero amount (Transaction requires > 0).
   class OrganizzeImport < ApplicationService
     TRANSFER_CATEGORIES = ["Transferências", "Pagamento de fatura"].freeze
 
@@ -110,7 +111,7 @@ module Imports
       return @report[:skipped_zero] += 1 if amount.zero?
 
       card = source.is_a?(CreditCard)
-      return @report[:skipped_card_credit] += 1 if card && amount.positive?
+      @report[:card_credits] += 1 if card && amount.positive?
 
       @user.transactions.create!(attributes_for(row, date:, amount:, source:, card:))
       @report[:imported] += 1

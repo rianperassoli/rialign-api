@@ -1,7 +1,7 @@
 module CreditCards
   # Pays a card's open invoice from a bank account.
   #
-  # The card's pending expenses are realized (marked paid, so they finally count
+  # The card's pending charges and credits are realized (marked paid, so they finally count
   # as real spending in reports) and the cash leaving the bank account is
   # recorded as a settlement leg on the payment account. That leg carries a
   # `transfer_id` so it lowers the account balance WITHOUT being double-counted
@@ -25,10 +25,13 @@ module CreditCards
       account = resolve_account
       return failure("No payment account set for this card") if account.nil?
 
-      pending = @card.transactions.expense.pending
+      # Pending credits are settled with the charges they offset. When credits
+      # outweigh the charges there is nothing to pay: they stay pending and
+      # carry over to the next invoice.
+      pending = @card.transactions.pending
       pending = pending.where(invoice_month: ..invoice_month) if invoice_month
-      total = pending.sum(:amount)
-      return failure("No open invoice to pay") if total.zero?
+      total = pending.charged_total
+      return failure("No open invoice to pay") unless total.positive?
 
       settlement = nil
       ApplicationRecord.transaction do

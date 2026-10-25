@@ -24,6 +24,29 @@ RSpec.describe CreditCards::PayInvoice, type: :service do
     expect(settlement.transfer?).to be true
   end
 
+  def add_card_credit(amount)
+    create(:transaction, user:, credit_card: card, account: nil, kind: "income", amount:, paid: false,
+                         category: create(:income_category, user:))
+  end
+
+  it "pays charges net of credits and settles the credits with them" do
+    add_card_expense(200)
+    credit = add_card_credit(50)
+
+    result = described_class.call(user:, credit_card: card)
+    expect(result.data[:amount]).to eq(150)
+    expect(credit.reload.paid).to be(true)
+  end
+
+  it "has nothing to pay while credits outweigh the charges, leaving them to carry over" do
+    add_card_expense(20)
+    credit = add_card_credit(50)
+
+    result = described_class.call(user:, credit_card: card)
+    expect(result).to be_failure
+    expect(credit.reload.paid).to be(false)
+  end
+
   it "marks the card's pending expenses as paid" do
     add_card_expense(200)
     described_class.call(user:, credit_card: card)

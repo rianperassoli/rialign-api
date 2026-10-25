@@ -21,11 +21,12 @@ class CreditCardInvoiceQuery
   end
 
   def call
-    transactions = @card.transactions.expense
+    # Charges and credits alike; both totals are net of credits.
+    transactions = @card.transactions
                         .where(invoice_month: @month)
                         .order(date: :asc, id: :asc)
-    total = transactions.sum(:amount)
-    pending = transactions.pending.sum(:amount)
+    total = transactions.charged_total
+    pending = transactions.pending.charged_total
 
     {
       month: @month.strftime("%Y-%m"),
@@ -47,7 +48,7 @@ class CreditCardInvoiceQuery
   # same rule as the "paid" status. `except` leaves one charge out, so a charge
   # can ask about the invoice it is being moved to.
   def self.paid?(card, month, except: nil)
-    charges = card.transactions.expense.where(invoice_month: month.beginning_of_month)
+    charges = card.transactions.where(invoice_month: month.beginning_of_month)
     charges = charges.where.not(id: except) if except
     charges.exists? && !charges.pending.exists?
   end

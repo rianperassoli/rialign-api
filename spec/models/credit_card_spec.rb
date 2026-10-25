@@ -78,6 +78,17 @@ RSpec.describe CreditCard, type: :model do
       expect(card.open_invoice).to eq(0)
     end
 
+    it "nets pending credits against the invoice and the limit they sit on" do
+      charge(100, Date.new(2026, 5, 10))
+      charge(70, Date.new(2026, 5, 25))
+      create(:transaction, user:, kind: "income", category: create(:income_category, user:),
+                           account: nil, credit_card: card, amount: 30, date: Date.new(2026, 5, 12), paid: false)
+
+      expect(card.open_invoice).to eq(70)
+      expect(card.next_invoice).to eq(70)
+      expect(card.available_limit).to eq(860)
+    end
+
     it "gathers charges on later invoices into the next invoice" do
       charge(100, Date.new(2026, 5, 10))
       charge(70, Date.new(2026, 5, 25))
