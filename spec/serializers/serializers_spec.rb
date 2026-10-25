@@ -67,6 +67,15 @@ RSpec.describe "Serializers" do
       expect(json[:category]).to include(:id, :name, :kind)
     end
 
+    it "names a subcategory's parent and lends it the parent's color" do
+      food = create(:category, user:, name: "Alimentação", color: "#e67e22")
+      transaction = create(:transaction, user:, category: create(:category, user:, parent: food, color: nil))
+
+      expect(described_class.new(transaction).as_json[:category]).to include(
+        color: "#e67e22", parent: { id: food.id, name: "Alimentação" }
+      )
+    end
+
     it "names the currency of the account, and BRL for a card" do
       usd = create(:transaction, user:, account: create(:account, user:, currency: "USD"))
       card = create(:transaction, user:, account: nil, credit_card: create(:credit_card, user:))

@@ -45,6 +45,8 @@ class TransactionSerializer < ApplicationSerializer
   def category
     return nil if object.category.blank?
 
-    { id: object.category.id, name: object.category.name, kind: object.category.kind, color: object.category.color }
+    category = object.category
+    { id: category.id, name: category.name, kind: category.kind, color: category.display_color,
+      parent: category.parent && { id: category.parent.id, name: category.parent.name } }
   end
 end

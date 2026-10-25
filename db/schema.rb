@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_10_25_160000) do
+ActiveRecord::Schema[8.0].define(version: 2026_10_25_180000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -37,7 +37,9 @@ ActiveRecord::Schema[8.0].define(version: 2026_10_25_160000) do
     t.datetime "archived_at"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.bigint "parent_id"
     t.index ["archived_at"], name: "index_categories_on_archived_at"
+    t.index ["parent_id"], name: "index_categories_on_parent_id"
     t.index ["user_id", "kind"], name: "index_categories_on_user_id_and_kind"
     t.index ["user_id"], name: "index_categories_on_user_id"
   end
@@ -127,6 +129,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_10_25_160000) do
   end
 
   add_foreign_key "accounts", "users"
+  add_foreign_key "categories", "categories", column: "parent_id"
   add_foreign_key "categories", "users"
   add_foreign_key "credit_cards", "accounts", column: "payment_account_id"
   add_foreign_key "credit_cards", "users"

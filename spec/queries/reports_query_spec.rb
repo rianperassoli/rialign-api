@@ -27,7 +27,8 @@ RSpec.describe ReportsQuery do
 
   it "sums paid expenses per category across the window" do
     expect(result[:by_category]).to eq([
-                                         { category_id: food.id, name: "Food", color: food.color, total: 300 }
+                                         { category_id: food.id, name: "Food", color: food.color, total: 300,
+                                           children: [] }
                                        ])
   end
 

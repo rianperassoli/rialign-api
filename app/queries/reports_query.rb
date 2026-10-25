@@ -43,12 +43,8 @@ class ReportsQuery
     end
   end
 
+  # Subcategories add into their parent (see CategoryBreakdown).
   def by_category
-    scoped.expense
-          .joins(:category)
-          .group("categories.id", "categories.name", "categories.color")
-          .sum(:amount)
-          .map { |(category_id, name, color), total| { category_id:, name:, color:, total: } }
-          .sort_by { |row| -row[:total] }
+    CategoryBreakdown.new(scoped).call
   end
 end

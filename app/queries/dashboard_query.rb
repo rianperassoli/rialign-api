@@ -46,13 +46,9 @@ class DashboardQuery
 
   # Includes name/color so the UI can chart categories without extra lookups.
   # Counts paid AND pending expenses: the breakdown answers "where is my money
-  # going this month", which includes what is already committed.
+  # going this month", which includes what is already committed. Subcategories
+  # add into their parent (see CategoryBreakdown).
   def expense_by_category
-    scoped.expense
-          .joins(:category)
-          .group("categories.id", "categories.name", "categories.color")
-          .sum(:amount)
-          .map { |(category_id, name, color), total| { category_id:, name:, color:, total: } }
-          .sort_by { |row| -row[:total] }
+    CategoryBreakdown.new(scoped).call
   end
 end

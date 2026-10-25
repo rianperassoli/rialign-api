@@ -47,6 +47,14 @@ RSpec.describe TransactionsQuery do
     expect(run(category_id: income_cat.id)).to contain_exactly(salary)
   end
 
+  it "includes a category's subcategories when filtering by it" do
+    market = create(:category, user:, parent: expense_cat)
+    bread = create(:transaction, user:, account:, category: market, description: "Pão", date: Date.new(2026, 5, 2))
+
+    expect(run(category_id: expense_cat.id)).to contain_exactly(groceries, rent, bread)
+    expect(run(category_id: market.id)).to contain_exactly(bread)
+  end
+
   it "filters by paid flag" do
     expect(run(paid: "false")).to contain_exactly(rent)
   end

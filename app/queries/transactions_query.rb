@@ -18,7 +18,7 @@ class TransactionsQuery
     scope = scope.where(kind: @params[:kind]) if @params[:kind].present?
     scope = scope.where(account_id: @params[:account_id]) if @params[:account_id].present?
     scope = scope.where(credit_card_id: @params[:credit_card_id]) if @params[:credit_card_id].present?
-    scope = scope.where(category_id: @params[:category_id]) if @params[:category_id].present?
+    scope = scope.where(category_id: category_ids) if @params[:category_id].present?
     scope = scope.where(paid: ActiveModel::Type::Boolean.new.cast(@params[:paid])) if @params.key?(:paid)
     scope = scope.between(parse_date(@params[:from]), parse_date(@params[:to])) if date_range?
     scope = scope.where("description ILIKE ?", "%#{@params[:search]}%") if @params[:search].present?
@@ -27,6 +27,11 @@ class TransactionsQuery
   end
 
   private
+
+  # A category stands for its subcategories too, as in the reports.
+  def category_ids
+    [@params[:category_id], *Category.unscoped.where(parent_id: @params[:category_id]).pluck(:id)]
+  end
 
   def date_range?
     @params[:from].present? && @params[:to].present?

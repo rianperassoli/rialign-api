@@ -6,7 +6,8 @@ class CategorySerializer < ApplicationSerializer
       id: object.id,
       name: object.name,
       kind: object.kind,
-      color: object.color,
+      color: object.display_color,
+      parent_id: object.parent_id,
       archived: object.archived?
     }
   end
