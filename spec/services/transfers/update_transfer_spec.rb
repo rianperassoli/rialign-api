@@ -64,4 +64,24 @@ RSpec.describe Transfers::UpdateTransfer, type: :service do
     expect(update(amount: 10, on: [payment])).to be_failure
     expect(payment.reload.amount).to eq(80)
   end
+
+  describe "between currencies" do
+    let(:usd) { create(:account, user:, name: "Global", currency: "USD", initial_balance: 0) }
+    let(:legs) do
+      id = Transfers::CreateTransfer.call(user:, params: { from_account_id: from.id, to_account_id: usd.id,
+                                                           amount: 550, received_amount: 100,
+                                                           date: Date.new(2026, 5, 1) }).data[:transfer_id]
+      user.transactions.where(transfer_id: id).order(:id).to_a
+    end
+
+    it "keeps what arrived when only the amount sent changes" do
+      update(amount: 600)
+      expect([balance(from), balance(usd)]).to eq([-600, 100])
+    end
+
+    it "takes a new amount received for the destination" do
+      update(received_amount: 110)
+      expect([balance(from), balance(usd)]).to eq([-550, 110])
+    end
+  end
 end

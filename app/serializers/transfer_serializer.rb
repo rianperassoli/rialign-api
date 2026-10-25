@@ -12,6 +12,8 @@ class TransferSerializer < ApplicationSerializer
     {
       transfer_id: leg.transfer_id,
       amount: leg.amount,
+      # What reached the destination; differs from `amount` across currencies.
+      received_amount: destination&.amount,
       date: leg.date,
       description: leg.description,
       notes: leg.notes,

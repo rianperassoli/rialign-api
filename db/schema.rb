@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_10_25_140000) do
+ActiveRecord::Schema[8.0].define(version: 2026_10_25_160000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -24,6 +24,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_10_25_140000) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.boolean "exclude_from_total", default: false, null: false
+    t.string "currency", default: "BRL", null: false
     t.index ["archived_at"], name: "index_accounts_on_archived_at"
     t.index ["user_id"], name: "index_accounts_on_user_id"
   end

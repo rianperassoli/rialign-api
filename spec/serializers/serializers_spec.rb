@@ -66,6 +66,14 @@ RSpec.describe "Serializers" do
       expect(json[:signed_amount]).to eq(-40)
       expect(json[:category]).to include(:id, :name, :kind)
     end
+
+    it "names the currency of the account, and BRL for a card" do
+      usd = create(:transaction, user:, account: create(:account, user:, currency: "USD"))
+      card = create(:transaction, user:, account: nil, credit_card: create(:credit_card, user:))
+
+      expect(described_class.new(usd).as_json[:currency]).to eq("USD")
+      expect(described_class.new(card).as_json[:currency]).to eq("BRL")
+    end
   end
 
   describe DashboardSerializer do

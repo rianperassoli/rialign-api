@@ -70,6 +70,14 @@ RSpec.describe DashboardQuery do
     end
   end
 
+  it "leaves entries on an account in another currency out of the totals" do
+    usd = create(:account, user:, currency: "USD")
+    create(:transaction, user:, account: usd, category: food, amount: 75, date: Date.new(2026, 5, 7))
+
+    expect(result[:totals][:expense]).to eq(200)
+    expect(result[:by_category].pluck(:total).sum).to eq(1000)
+  end
+
   it "defaults to the current month when none is given" do
     res = described_class.new(user).call
     expect(res[:period][:from]).to eq(Date.current.beginning_of_month)

@@ -9,9 +9,12 @@ class AccountSerializer < ApplicationSerializer
       id: object.id,
       name: object.name,
       account_type: object.account_type,
+      currency: object.currency,
       initial_balance: object.initial_balance,
       current_balance: current_balance,
       exclude_from_total: object.exclude_from_total,
+      # Whether it reaches the consolidated balance (see Account#counted?).
+      counted: object.counted?,
       archived: object.archived?,
       created_at: object.created_at
     }

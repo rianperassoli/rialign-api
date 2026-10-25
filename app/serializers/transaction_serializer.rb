@@ -8,6 +8,8 @@ class TransactionSerializer < ApplicationSerializer
       kind: object.kind,
       amount: object.amount,
       signed_amount: object.signed_amount,
+      # The account's currency; cards are always in the base currency.
+      currency: object.account&.currency || Account::BASE_CURRENCY,
       date: object.date,
       paid: object.paid,
       notes: object.notes,

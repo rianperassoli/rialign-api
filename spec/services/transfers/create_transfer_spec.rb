@@ -56,4 +56,29 @@ RSpec.describe Transfers::CreateTransfer, type: :service do
     expect { described_class.call(user:, params: valid_params.merge(amount: -5)) }
       .not_to change(Transaction, :count)
   end
+
+  describe "between currencies" do
+    let(:usd) { create(:account, user:, name: "Global", currency: "USD", initial_balance: 0) }
+
+    def balance(account)
+      Accounts::BalanceCalculator.new(user:).account_balance(account)
+    end
+
+    it "moves each side its own amount" do
+      result = described_class.call(user:, params: valid_params.merge(to_account_id: usd.id, amount: 550,
+                                                                      received_amount: 100))
+      expect(result).to be_success
+      expect([balance(from), balance(usd)]).to eq([450, 100])
+    end
+
+    it "requires the amount received" do
+      result = described_class.call(user:, params: valid_params.merge(to_account_id: usd.id))
+      expect(result.errors).to include("The amount received is required when the accounts use different currencies")
+    end
+
+    it "ignores a received amount within one currency" do
+      described_class.call(user:, params: valid_params.merge(received_amount: 1))
+      expect(balance(to)).to eq(250)
+    end
+  end
 end

@@ -29,7 +29,7 @@ class DashboardQuery
   def scoped
     # Transfers and invoice settlements move money around without being real
     # income or expense, so they are excluded from every report figure.
-    @scoped ||= @user.transactions.non_transfer.reported_between(@from, @to)
+    @scoped ||= @user.transactions.non_transfer.in_base_currency.reported_between(@from, @to)
   end
 
   def totals

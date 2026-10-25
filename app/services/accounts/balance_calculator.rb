@@ -6,8 +6,9 @@ module Accounts
   #  - Account balance counts only PAID transactions booked to that account:
   #      initial_balance + sum(income) - sum(expense)
   #  - Consolidated balance = sum of every (kept) account balance, skipping the
-  #    ones flagged `exclude_from_total`. Those still report their own balance;
-  #    they just do not feed the headline number.
+  #    ones flagged `exclude_from_total` and the ones in another currency (see
+  #    Account#counted?). Those still report their own balance; they just do
+  #    not feed the headline number.
   #  - A credit card open invoice = pending expenses up to the current closing
   #    date; the next invoice is what has accumulated after it; available limit
   #    subtracts ALL pending charges (see CreditCard).
@@ -39,7 +40,7 @@ module Accounts
     end
 
     def consolidated_balance
-      account_balances.sum { |row| row[:account].exclude_from_total? ? 0 : row[:balance] }
+      account_balances.sum { |row| row[:account].counted? ? row[:balance] : 0 }
     end
 
     def credit_card_invoices

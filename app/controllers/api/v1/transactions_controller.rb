@@ -5,7 +5,7 @@ module Api
 
       # GET /api/v1/transactions  (filterable + paginated)
       def index
-        scope = TransactionsQuery.new(current_user.transactions, filter_params).call
+        scope = TransactionsQuery.new(current_user.transactions.includes(:account, :category), filter_params).call
         render_collection(scope, serializer: TransactionSerializer)
       end
 

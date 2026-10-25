@@ -51,7 +51,7 @@ module Api
       end
 
       def account_params
-        params.expect(account: %i[name account_type initial_balance exclude_from_total])
+        params.expect(account: %i[name account_type currency initial_balance exclude_from_total])
       end
     end
   end

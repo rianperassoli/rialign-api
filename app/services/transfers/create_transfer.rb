@@ -5,6 +5,10 @@ module Transfers
   #   - an EXPENSE on the source account
   #   - an INCOME on the destination account
   #
+  # Between accounts in different currencies the destination leg takes
+  # `received_amount` instead — nothing is converted, the user says what
+  # arrived.
+  #
   # Both legs are written in a single DB transaction so a transfer is never left
   # half-recorded. The legs reuse all existing balance math (the expense lowers
   # the source, the income raises the destination, netting to zero across the
@@ -19,14 +23,13 @@ module Transfers
       from = @user.accounts.find_by(id: @params[:from_account_id])
       to   = @user.accounts.find_by(id: @params[:to_account_id])
 
-      return failure("Source account not found") if from.nil?
-      return failure("Destination account not found") if to.nil?
-      return failure("Source and destination must differ") if from.id == to.id
+      error = accounts_error(from, to)
+      return failure(error) if error
 
       transfer_id = SecureRandom.uuid
       ApplicationRecord.transaction do
-        build_leg(account: from, kind: "expense", transfer_id:).save!
-        build_leg(account: to,   kind: "income",  transfer_id:).save!
+        build_leg(account: from, kind: "expense", transfer_id:, amount: @params[:amount]).save!
+        build_leg(account: to,   kind: "income",  transfer_id:, amount: received_amount(from, to)).save!
       end
       success(transfer_id: transfer_id, from: from, to: to)
     rescue ActiveRecord::RecordInvalid => e
@@ -35,13 +38,29 @@ module Transfers
 
     private
 
-    def build_leg(account:, kind:, transfer_id:)
+    def accounts_error(from, to)
+      return "Source account not found" if from.nil?
+      return "Destination account not found" if to.nil?
+      return "Source and destination must differ" if from.id == to.id
+
+      return unless from.currency != to.currency && @params[:received_amount].blank?
+
+      "The amount received is required when the accounts use different currencies"
+    end
+
+    # Across currencies each side moves its own amount (R$ 550 out, US$ 100
+    # in); within one currency the same amount leaves and arrives.
+    def received_amount(from, to)
+      from.currency == to.currency ? @params[:amount] : @params[:received_amount]
+    end
+
+    def build_leg(account:, kind:, transfer_id:, amount:)
       @user.transactions.new(
         account: account,
         kind: kind,
         transfer_id: transfer_id,
         description: @params[:description].presence || "Transfer",
-        amount: @params[:amount],
+        amount: amount,
         date: @params[:date] || Date.current,
         notes: @params[:notes],
         paid: true

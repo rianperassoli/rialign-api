@@ -44,6 +44,11 @@ class Transaction < ApplicationRecord
   scope :booked,    -> { paid.or(where.not(credit_card_id: nil)) }
   # Account entries still scheduled: the forecast. Card charges never are.
   scope :scheduled, -> { pending.where(credit_card_id: nil) }
+  # Reports are in Account::BASE_CURRENCY and nothing is converted, so entries
+  # on an account in another currency stay out (cards have no currency).
+  scope :in_base_currency, lambda {
+    where(account_id: nil).or(where(account_id: Account.unscoped.in_base_currency.select(:id)))
+  }
 
   validates :description, presence: true
   validates :kind, presence: true, inclusion: { in: KINDS }

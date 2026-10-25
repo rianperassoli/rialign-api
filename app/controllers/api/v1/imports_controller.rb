@@ -49,7 +49,7 @@ module Api
         raw = params.fetch(:settings, {}).permit!.to_h
         {
           "open_from" => raw["open_from"],
-          "accounts" => scoped(raw["accounts"], %w[exclude_from_total current_balance]),
+          "accounts" => scoped(raw["accounts"], %w[exclude_from_total current_balance currency]),
           "credit_cards" => scoped(raw["credit_cards"], %w[closing_day due_day credit_limit])
         }
       end

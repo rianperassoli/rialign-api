@@ -36,6 +36,15 @@ RSpec.describe Accounts::BalanceCalculator, type: :service do
       expect(described_class.call(user:).data[:consolidated_balance]).to eq(1400)
     end
 
+    it "leaves accounts in another currency out, without converting them" do
+      create(:account, user:, initial_balance: 100)
+      usd = create(:account, user:, initial_balance: 50, currency: "USD")
+
+      data = described_class.call(user:).data
+      expect(data[:consolidated_balance]).to eq(1400)
+      expect(data[:accounts].find { |r| r[:account] == usd }[:balance]).to eq(50)
+    end
+
     it "still reports their own balance" do
       excluded = create(:account, user:, initial_balance: 900, exclude_from_total: true)
       row = described_class.call(user:).data[:accounts].find { |r| r[:account] == excluded }

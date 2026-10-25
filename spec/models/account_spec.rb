@@ -10,6 +10,17 @@ RSpec.describe Account, type: :model do
   it { is_expected.to validate_presence_of(:account_type) }
   it { is_expected.to validate_inclusion_of(:account_type).in_array(described_class::ACCOUNT_TYPES) }
 
+  it "holds BRL unless told otherwise, and only known currencies" do
+    expect(build(:account).currency).to eq("BRL")
+    expect(build(:account, currency: "JPY")).to be_invalid
+  end
+
+  it "counts towards the total only in BRL and when not excluded" do
+    expect(build(:account)).to be_counted
+    expect(build(:account, currency: "USD")).not_to be_counted
+    expect(build(:account, exclude_from_total: true)).not_to be_counted
+  end
+
   it "requires a numeric initial balance" do
     expect(build(:account, initial_balance: "abc")).to be_invalid
   end

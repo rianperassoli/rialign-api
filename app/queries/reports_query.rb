@@ -29,7 +29,7 @@ class ReportsQuery
   private
 
   def scoped
-    @scoped ||= @user.transactions.non_transfer.booked.reported_between(@from, @to)
+    @scoped ||= @user.transactions.non_transfer.in_base_currency.booked.reported_between(@from, @to)
   end
 
   def monthly

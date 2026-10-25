@@ -43,7 +43,7 @@ RSpec.describe Imports::AnalyzeOrganizzeExport do
     result = analyze({ "NuBank" => [["01.08.2026", "Mercado", "Mercado", -50.0, "Pago"]],
                        "NuBank - Cartão" => [["01.08.2026", "Livro", "Compras", -30.0, "Setembro/2026"]] })
 
-    expect(result[:accounts]).to eq([{ name: "NuBank", rows: 1, balance: "-50.0" }])
+    expect(result[:accounts]).to eq([{ name: "NuBank", rows: 1, balance: "-50.0", currency: "BRL" }])
     expect(result[:credit_cards].sole).to include(name: "NuBank - Cartão", rows: 1)
   end
 
@@ -107,8 +107,15 @@ RSpec.describe Imports::AnalyzeOrganizzeExport do
     expect(result[:accounts].sole[:balance]).to eq("-9.75")
   end
 
+  it "guesses the currency an account is named after" do
+    names = ["Carteira USD", "NuBank - GLOBAL USD", "Nubank (USD)", "Conta Euro", "Libra UK", "Usdinheiro"]
+    accounts = analyze(names.index_with { [] })[:accounts]
+
+    expect(accounts.pluck(:currency)).to eq(%w[USD USD USD EUR GBP BRL])
+  end
+
   it "reports a sheet that has only a header" do
-    expect(analyze({ "Vazia" => [] })[:accounts]).to eq([{ name: "Vazia", rows: 0, balance: "0.0" }])
+    expect(analyze({ "Vazia" => [] })[:accounts]).to eq([{ name: "Vazia", rows: 0, balance: "0.0", currency: "BRL" }])
   end
 
   it "skips a sheet with not even a header" do

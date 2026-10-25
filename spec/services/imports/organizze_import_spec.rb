@@ -257,6 +257,11 @@ RSpec.describe Imports::OrganizzeImport do
       expect(balance).to eq(2650.55)
     end
 
+    it "keeps the currency the user confirmed" do
+      import(rows, defaults: { accounts: { "NuBank" => { "currency" => "USD" } } })
+      expect(user.accounts.sole).to have_attributes(currency: "USD", counted?: false)
+    end
+
     it "starts at zero when no balance is given" do
       import(rows, defaults: { accounts: { "NuBank" => { "exclude_from_total" => true } } })
 
