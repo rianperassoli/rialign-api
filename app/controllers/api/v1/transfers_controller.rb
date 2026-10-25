@@ -4,9 +4,11 @@ module Api
       before_action :set_legs, only: %i[show update destroy]
 
       # GET /api/v1/transfers
-      # One row per transfer (its source/expense leg), most recent first.
+      # One row per transfer (its source/expense leg on an account), most recent
+      # first. A partial invoice payment's remaining balance is a card leg of
+      # the same payment, so it is left out.
       def index
-        legs = current_user.transactions.transfers.expense.order(date: :desc, id: :desc)
+        legs = current_user.transactions.transfers.expense.where(credit_card_id: nil).order(date: :desc, id: :desc)
         render_collection(legs, serializer: TransactionSerializer)
       end
 

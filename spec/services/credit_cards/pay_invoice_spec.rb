@@ -81,6 +81,73 @@ RSpec.describe CreditCards::PayInvoice, type: :service do
     expect(reopened.reload.paid).to be(true)
   end
 
+  describe "partial payment" do
+    let(:month) { card.current_invoice_month }
+
+    def pay(amount, **extra)
+      described_class.call(user:, credit_card: card, params: { month: month.strftime("%Y-%m"), amount:, **extra })
+    end
+
+    it "settles the invoice and moves the rest to the next one as a remaining balance" do
+      add_card_expense(300)
+      result = pay("120.50")
+
+      expect(result.data).to include(amount: 120.50, remaining: 179.50)
+      expect(CreditCardInvoiceQuery.new(card, month:).call[:status]).to eq("paid")
+      remainder = card.transactions.pending.sole
+      expect(remainder).to have_attributes(amount: 179.50, invoice_month: month >> 1,
+                                           transfer_id: result.data[:transaction].transfer_id)
+      expect(card.reload.available_limit).to eq(card.credit_limit - 179.50)
+    end
+
+    it "takes only what was paid from the account and keeps the remainder out of reports" do
+      add_card_expense(300)
+      pay(100)
+
+      expect(Accounts::BalanceCalculator.new(user:).account_balance(account)).to eq(900)
+      expect(DashboardQuery.new(user, month: month >> 1).call[:totals][:expense]).to eq(0)
+    end
+
+    it "removes the remaining balance and reopens the invoice when undone" do
+      add_card_expense(300)
+      payment = pay(100).data[:transaction]
+      user.transactions.where(transfer_id: payment.transfer_id).find_each(&:destroy)
+
+      expect(card.transactions.pending.sole.amount).to eq(300)
+    end
+
+    it "cannot be undone once a later payment settled the remaining balance" do
+      add_card_expense(300)
+      first = pay(100).data[:transaction]
+      described_class.call(user:, credit_card: card, params: { month: (month >> 1).strftime("%Y-%m") })
+
+      expect { first.destroy }.to raise_error(ActiveRecord::RecordNotDestroyed, /undo that payment first/)
+      remainder = card.transactions.find_by(transfer_id: first.transfer_id)
+      expect { remainder.destroy }.to raise_error(ActiveRecord::RecordNotDestroyed)
+    end
+
+    it "rejects an amount that is zero, unreadable or above the total" do
+      add_card_expense(300)
+
+      expect(pay(0).errors).to include("Amount must be greater than zero")
+      expect(pay("abc").errors).to include("Amount must be greater than zero")
+      expect(pay(301).errors).to include("Amount cannot exceed the invoice total")
+      expect(card.transactions.pending.count).to eq(1)
+    end
+
+    it "needs the invoice month to know where the rest goes" do
+      add_card_expense(300)
+      result = described_class.call(user:, credit_card: card, params: { amount: 100 })
+      expect(result.errors).to include("A partial payment needs the invoice month")
+    end
+
+    it "is a full payment when the amount is the whole total" do
+      add_card_expense(300)
+      expect(pay(300).data[:remaining]).to eq(0)
+      expect(card.transactions.pending).to be_empty
+    end
+  end
+
   it "marks the card's pending expenses as paid" do
     add_card_expense(200)
     described_class.call(user:, credit_card: card)

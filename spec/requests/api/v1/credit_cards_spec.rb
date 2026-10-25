@@ -101,6 +101,19 @@ RSpec.describe "Api::V1::CreditCards", type: :request do
       expect(Accounts::BalanceCalculator.new(user:).account_balance(account)).to eq(1000)
     end
 
+    it "accepts a partial amount and refuses to undo it once its remainder is paid" do
+      month = card.current_invoice_month.strftime("%Y-%m")
+      post "/api/v1/credit_cards/#{card.id}/pay_invoice", params: { payment: { month:, amount: 100 } }.to_json,
+                                                          headers: auth_headers(user)
+      expect(json.dig("data", "amount").to_d).to eq(100)
+      first_id = json.dig("data", "id")
+
+      post "/api/v1/credit_cards/#{card.id}/pay_invoice", headers: auth_headers(user)
+      delete "/api/v1/transactions/#{first_id}", headers: auth_headers(user)
+      expect(response).to have_http_status(:unprocessable_entity)
+      expect(json["errors"].first).to match(/undo that payment first/)
+    end
+
     it "returns 422 when there is no open invoice" do
       empty = create(:credit_card, user:, payment_account: account)
       post "/api/v1/credit_cards/#{empty.id}/pay_invoice", headers: auth_headers(user)

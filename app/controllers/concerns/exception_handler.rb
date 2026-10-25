@@ -12,6 +12,10 @@ module ExceptionHandler
       render_error("Validation failed", status: :unprocessable_entity, errors: e.record.errors.full_messages)
     end
 
+    rescue_from ActiveRecord::RecordNotDestroyed do |e|
+      render_error("Could not delete", status: :unprocessable_entity, errors: [e.message])
+    end
+
     rescue_from ActionController::ParameterMissing do |e|
       render_error("Missing parameter", status: :bad_request, errors: [e.message])
     end

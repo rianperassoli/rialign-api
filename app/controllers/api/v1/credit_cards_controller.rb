@@ -66,7 +66,7 @@ module Api
       def pay_invoice_params
         return {} unless params.key?(:payment)
 
-        params.expect(payment: %i[account_id date month])
+        params.expect(payment: %i[account_id date month amount])
       end
 
       # Without a month, the invoice still accumulating charges today.
