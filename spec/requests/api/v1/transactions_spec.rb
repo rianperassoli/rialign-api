@@ -74,6 +74,33 @@ RSpec.describe "Api::V1::Transactions", type: :request do
     end
   end
 
+  describe "open-ended fixed entries" do
+    let(:payload) do
+      { fixed: true, transaction: { description: "Academia", kind: "expense", amount: 99,
+                                    date: Date.current.to_s, account_id: account.id, category_id: category.id } }
+    end
+
+    it "creates a year of occurrences and keeps extending them on later requests" do
+      post "/api/v1/transactions", params: payload.to_json, headers: auth_headers(user)
+      expect(response).to have_http_status(:created)
+      expect(user.transactions.count).to eq(13)
+
+      travel_to(2.months.from_now) do
+        get "/api/v1/transactions", headers: auth_headers(user)
+        expect(user.transactions.count).to eq(15)
+      end
+    end
+
+    it "stops when this and the following occurrences are deleted" do
+      post "/api/v1/transactions", params: payload.to_json, headers: auth_headers(user)
+      third = user.transactions.order(:date).third
+
+      delete "/api/v1/transactions/#{third.id}?scope=future", headers: auth_headers(user)
+      expect(user.recurrences).to be_empty
+      expect(user.transactions.count).to eq(2)
+    end
+  end
+
   describe "PATCH /api/v1/transactions/:id with a scope" do
     let!(:series) do
       Transactions::CreateSeries.call(user:, months: 3,

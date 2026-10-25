@@ -15,7 +15,8 @@ module Api
 
       # POST /api/v1/transactions
       # Top-level `installments: 12` splits the amount into an installment
-      # series; `fixed_months: 12` repeats it monthly (see CreateSeries).
+      # series; `fixed_months: 12` repeats it monthly (see CreateSeries);
+      # `fixed: true` without months repeats it with no end (Recurrences::Start).
       def create
         result = create_result
         if result.failure?
@@ -42,8 +43,13 @@ module Api
       # `future` archives this occurrence and the later ones in its series;
       # `series` archives every occurrence. A transfer leg takes the whole
       # transfer with it, so no account is left holding half of it.
+      # Removing this and the following occurrences, or all of them, also ends
+      # an open-ended series, so no new month is created after.
       def destroy
         destroy_targets.each(&:destroy)
+        if @transaction.series_id && %w[future series].include?(params[:scope])
+          current_user.recurrences.where(series_id: @transaction.series_id).delete_all
+        end
         head :no_content
       end
 
@@ -61,15 +67,20 @@ module Api
       end
 
       def create_result
+        attrs = { user: current_user, params: transaction_params }
         if params[:installments].to_i > 1
-          Transactions::CreateSeries.call(user: current_user, params: transaction_params,
-                                          installments: params[:installments])
+          Transactions::CreateSeries.call(**attrs, installments: params[:installments])
+        elsif open_ended?
+          Recurrences::Start.call(**attrs)
         elsif params[:fixed_months].to_i > 1
-          Transactions::CreateSeries.call(user: current_user, params: transaction_params,
-                                          months: params[:fixed_months])
+          Transactions::CreateSeries.call(**attrs, months: params[:fixed_months])
         else
-          Transactions::CreateTransaction.call(user: current_user, params: transaction_params)
+          Transactions::CreateTransaction.call(**attrs)
         end
+      end
+
+      def open_ended?
+        ActiveModel::Type::Boolean.new.cast(params[:fixed]) && params[:fixed_months].blank?
       end
 
       def destroy_targets

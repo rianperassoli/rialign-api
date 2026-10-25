@@ -77,7 +77,7 @@ module Imports
     # Unscoped so archived records go too, and ordered so nothing is left
     # pointing at a deleted row.
     def wipe_existing
-      [Transaction, CreditCard, Account, Category].each do |model|
+      [Transaction, Recurrence, CreditCard, Account, Category].each do |model|
         @report[:replaced] += model.unscoped.where(user: @user).delete_all
       end
     end

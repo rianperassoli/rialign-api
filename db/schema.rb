@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_10_25_120000) do
+ActiveRecord::Schema[8.0].define(version: 2026_10_25_140000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -71,6 +71,18 @@ ActiveRecord::Schema[8.0].define(version: 2026_10_25_120000) do
     t.index ["user_id"], name: "index_imports_on_user_id"
   end
 
+  create_table "recurrences", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.uuid "series_id", null: false
+    t.date "starts_on", null: false
+    t.date "extended_through", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["series_id"], name: "index_recurrences_on_series_id", unique: true
+    t.index ["user_id", "extended_through"], name: "index_recurrences_on_user_id_and_extended_through"
+    t.index ["user_id"], name: "index_recurrences_on_user_id"
+  end
+
   create_table "transactions", force: :cascade do |t|
     t.bigint "user_id", null: false
     t.bigint "category_id"
@@ -118,6 +130,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_10_25_120000) do
   add_foreign_key "credit_cards", "accounts", column: "payment_account_id"
   add_foreign_key "credit_cards", "users"
   add_foreign_key "imports", "users"
+  add_foreign_key "recurrences", "users"
   add_foreign_key "transactions", "accounts"
   add_foreign_key "transactions", "categories"
   add_foreign_key "transactions", "credit_cards"

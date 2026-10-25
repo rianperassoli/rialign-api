@@ -149,6 +149,16 @@ RSpec.describe Imports::OrganizzeImport do
     end
   end
 
+  it "replaces open-ended fixed entries along with everything else" do
+    Recurrences::Start.call(user:, params: { description: "Aluguel", kind: "expense", amount: 1000,
+                                             date: Date.current, account_id: create(:account, user:).id,
+                                             category_id: create(:category, user:).id })
+
+    import({ "NuBank" => [["01.08.2026", "Mercado", "Mercado", -50.0, "Pago"]] }, replace_existing: true)
+    expect(user.recurrences.reload).to be_empty
+    expect(user.transactions.reload.pluck(:description)).to eq(["Mercado"])
+  end
+
   # The wipe and the write share one transaction, so a row that cannot be saved
   # takes the deletion down with it. A failed import must never leave the user
   # with less than they started with.
