@@ -1,8 +1,9 @@
 module Imports
   # Reads an export WITHOUT writing anything, so the user can be shown what is
   # in it and asked for the few things the file cannot answer: a card's due day
-  # and credit limit, which invoice is still open, and which accounts stay out
-  # of the consolidated balance.
+  # and credit limit, which invoice is still open, which accounts stay out
+  # of the consolidated balance, and each account's balance today (the file has
+  # no opening balance).
   #
   # The closing day IS derivable, so it comes back pre-filled: grouping a card's
   # charges by the invoice printed on them exposes the cycle. The due day is
@@ -32,7 +33,7 @@ module Imports
         if OrganizzeFormat.card_sheet?(sheet.name)
           cards << card_preview(sheet, rows)
         else
-          accounts << { name: sheet.name, rows: rows }
+          accounts << { name: sheet.name, rows: rows, balance: rows_balance(sheet).to_s("F") }
         end
       end
 
@@ -40,6 +41,15 @@ module Imports
     end
 
     private
+
+    # What the account would hold from its rows alone. The export carries no
+    # opening balance, so this is what the user corrects to the balance
+    # Organizze shows (see OrganizzeImport's `current_balance`).
+    def rows_balance(sheet)
+      1.upto(sheet.row_count - 1).sum(BigDecimal(0)) do |i|
+        BigDecimal(sheet.row(i)[OrganizzeFormat::AMOUNT].to_f.to_s)
+      end
+    end
 
     def card_preview(sheet, rows)
       spans = invoice_spans(sheet)

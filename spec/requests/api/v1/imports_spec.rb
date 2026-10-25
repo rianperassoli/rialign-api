@@ -67,7 +67,7 @@ RSpec.describe "Api::V1::Imports", type: :request do
     it "stores the answers and starts the write" do
       settings = {
         open_from: "2026-10",
-        accounts: { "Lifetycon" => { exclude_from_total: true } },
+        accounts: { "Lifetycon" => { exclude_from_total: true, current_balance: "-12.30" } },
         credit_cards: { "NuBank - Cartão" => { closing_day: 31, due_day: 10, credit_limit: "7207.80" } }
       }
 
@@ -79,6 +79,7 @@ RSpec.describe "Api::V1::Imports", type: :request do
       expect(import.reload.status).to eq("importing")
       expect(import.settings.dig("credit_cards", "NuBank - Cartão", "due_day")).to eq(10)
       expect(import.settings.dig("accounts", "Lifetycon", "exclude_from_total")).to be(true)
+      expect(import.settings.dig("accounts", "Lifetycon", "current_balance")).to eq("-12.30")
     end
 
     # Names come from the file, so only the leaf attributes can be constrained.

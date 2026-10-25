@@ -200,4 +200,30 @@ RSpec.describe Imports::OrganizzeImport do
 
     expect(user.credit_cards.sole).to have_attributes(due_day: 4, closing_day: 31)
   end
+
+  describe "opening balance" do
+    let(:rows) do
+      { "NuBank" => [["01.08.2026", "Salário", "Salário", 3000.0, "Pago"],
+                     ["02.08.2026", "Mercado", "Mercado", -500.0, "Pago"],
+                     ["03.08.2026", "Pix", "Transferências", -100.0, "Pago"]] }
+    end
+
+    def balance
+      Accounts::BalanceCalculator.new(user:).account_balance(user.accounts.sole)
+    end
+
+    it "works it out from the balance Organizze shows today" do
+      import(rows, defaults: { accounts: { "NuBank" => { "current_balance" => "2650.55" } } })
+
+      expect(user.accounts.sole.initial_balance).to eq(250.55)
+      expect(balance).to eq(2650.55)
+    end
+
+    it "starts at zero when no balance is given" do
+      import(rows, defaults: { accounts: { "NuBank" => { "exclude_from_total" => true } } })
+
+      expect(user.accounts.sole).to have_attributes(initial_balance: 0, exclude_from_total: true)
+      expect(balance).to eq(2400)
+    end
+  end
 end

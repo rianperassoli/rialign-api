@@ -43,7 +43,7 @@ RSpec.describe Imports::AnalyzeOrganizzeExport do
     result = analyze({ "NuBank" => [["01.08.2026", "Mercado", "Mercado", -50.0, "Pago"]],
                        "NuBank - Cartão" => [["01.08.2026", "Livro", "Compras", -30.0, "Setembro/2026"]] })
 
-    expect(result[:accounts]).to eq([{ name: "NuBank", rows: 1 }])
+    expect(result[:accounts]).to eq([{ name: "NuBank", rows: 1, balance: "-50.0" }])
     expect(result[:credit_cards].sole).to include(name: "NuBank - Cartão", rows: 1)
   end
 
@@ -99,8 +99,16 @@ RSpec.describe Imports::AnalyzeOrganizzeExport do
     end
   end
 
+  it "sums an account's rows into the balance the file alone gives, without float drift" do
+    result = analyze({ "NuBank" => [["01.08.2026", "Salário", "Salário", 0.1, "Pago"],
+                                    ["02.08.2026", "Pix", "Outros", 0.2, "Pago"],
+                                    ["03.08.2026", "Mercado", "Mercado", -10.05, "Pago"]] })
+
+    expect(result[:accounts].sole[:balance]).to eq("-9.75")
+  end
+
   it "reports a sheet that has only a header" do
-    expect(analyze({ "Vazia" => [] })[:accounts]).to eq([{ name: "Vazia", rows: 0 }])
+    expect(analyze({ "Vazia" => [] })[:accounts]).to eq([{ name: "Vazia", rows: 0, balance: "0.0" }])
   end
 
   it "skips a sheet with not even a header" do

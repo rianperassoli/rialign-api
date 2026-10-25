@@ -43,7 +43,8 @@ module Imports
     # import, so a failure leaves the old data untouched.
     # `defaults` holds what the export cannot say, keyed by sheet name under
     # `:accounts` and `:credit_cards`: a card's due day and limit, an account's
-    # place in the consolidated balance.
+    # place in the consolidated balance and its `current_balance` — the balance
+    # Organizze shows today, from which the opening balance is worked out.
     def initialize(user:, path:, open_from: Date.current.beginning_of_month, defaults: {},
                    replace_existing: false)
       @user = user
@@ -84,6 +85,7 @@ module Imports
     def import_sheet(sheet)
       source = source_for(sheet.name)
       1.upto(sheet.row_count - 1) { |i| import_row(sheet.row(i), source) }
+      open_account(source, sheet.name) if source.is_a?(Account)
     end
 
     def source_for(name)
@@ -93,8 +95,20 @@ module Imports
                                      due_day: 10 }.merge(defaults_for(:credit_cards, name)))
       else
         @report[:accounts] += 1
-        @user.accounts.create!({ name: name, initial_balance: 0 }.merge(defaults_for(:accounts, name)))
+        @user.accounts.create!({ name: name, initial_balance: 0 }
+                                 .merge(defaults_for(:accounts, name).except(:current_balance)))
       end
+    end
+
+    # The export starts every account at zero. Given the balance Organizze shows
+    # today, the opening balance is whatever the rows leave unexplained, so the
+    # account ends exactly there.
+    def open_account(account, name)
+      target = defaults_for(:accounts, name)[:current_balance]
+      return if target.blank?
+
+      from_rows = Accounts::BalanceCalculator.new(user: @user).account_balance(account)
+      account.update!(initial_balance: BigDecimal(target.to_s) - from_rows)
     end
 
     # Settings arrive as JSON, so the keys are strings; callers in Ruby pass
