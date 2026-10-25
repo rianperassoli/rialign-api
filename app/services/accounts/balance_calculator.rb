@@ -27,15 +27,24 @@ module Accounts
 
     # Balance for a single account (used by serializers).
     def account_balance(account)
-      paid = account.transactions.paid
-      account.initial_balance + paid.income.sum(:amount) - paid.expense.sum(:amount)
+      balances_for([account])[account.id]
+    end
+
+    # Balances of several accounts in one grouped query, keyed by account id.
+    def balances_for(accounts)
+      # Expenses minus income per account: what left it (Transaction.charged_total).
+      spent = Transaction.paid.where(account_id: accounts.map(&:id)).group(:account_id).charged_total
+      accounts.to_h { |account| [account.id, account.initial_balance - spent.fetch(account.id, 0)] }
     end
 
     private
 
+    # Worked out once per call: the consolidated balance reads the same rows.
     def account_balances
-      @user.accounts.map do |account|
-        { account:, balance: account_balance(account) }
+      @account_balances ||= begin
+        accounts = @user.accounts.to_a
+        balances = balances_for(accounts)
+        accounts.map { |account| { account:, balance: balances[account.id] } }
       end
     end
 

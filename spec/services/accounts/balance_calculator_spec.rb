@@ -17,6 +17,22 @@ RSpec.describe Accounts::BalanceCalculator, type: :service do
     end
   end
 
+  describe "query count" do
+    def queries(&)
+      count = 0
+      counter = ->(*, payload) { count += 1 unless payload[:name].in?(%w[SCHEMA TRANSACTION]) }
+      ActiveSupport::Notifications.subscribed(counter, "sql.active_record", &)
+      count
+    end
+
+    it "works out every account balance in one query, however many accounts there are" do
+      3.times { create(:transaction, user:, account: create(:account, user:), amount: 10) }
+
+      # accounts + balances + cards (none)
+      expect(queries { described_class.call(user:) }).to eq(3)
+    end
+  end
+
   describe ".call" do
     it "returns the consolidated balance" do
       result = described_class.call(user:)

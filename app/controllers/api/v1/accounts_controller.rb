@@ -9,7 +9,11 @@ module Api
       def index
         scope = current_user.accounts
         scope = scope.archived if params[:archived].to_s == "true"
-        render_collection(scope.order(:name), serializer: AccountSerializer)
+        # Every balance in one query instead of one per account.
+        render_page(scope.order(:name)) do |accounts|
+          balances = Accounts::BalanceCalculator.new(user: current_user).balances_for(accounts)
+          accounts.map { |account| AccountSerializer.new(account, balance: balances[account.id]).as_json }
+        end
       end
 
       # GET /api/v1/accounts/:id
