@@ -47,6 +47,40 @@ RSpec.describe CreditCards::PayInvoice, type: :service do
     expect(credit.reload.paid).to be(false)
   end
 
+  it "links every charge it settles to the payment" do
+    charge = add_card_expense(200)
+    settlement = described_class.call(user:, credit_card: card).data[:transaction]
+
+    expect(charge.reload.settled_by).to eq(settlement)
+    expect(settlement.settled_charges).to contain_exactly(charge)
+  end
+
+  it "reopens only its own charges when the payment is removed, even archived ones" do
+    earlier = add_card_expense(80, paid: true)
+    charge = add_card_expense(200)
+    archived = add_card_expense(10)
+    settlement = described_class.call(user:, credit_card: card).data[:transaction]
+    archived.reload.archive!
+
+    settlement.destroy
+
+    expect(charge.reload).to have_attributes(paid: false, settled_by_id: nil)
+    expect(Transaction.unscoped.find(archived.id).settled_by_id).to be_nil
+    expect(earlier.reload.paid).to be(true)
+    expect(settlement.reload).to be_archived
+  end
+
+  it "does nothing more when an already removed payment is removed again" do
+    add_card_expense(200)
+    settlement = described_class.call(user:, credit_card: card).data[:transaction]
+    settlement.destroy
+    reopened = card.transactions.sole
+    reopened.update!(paid: true)
+
+    settlement.destroy
+    expect(reopened.reload.paid).to be(true)
+  end
+
   it "marks the card's pending expenses as paid" do
     add_card_expense(200)
     described_class.call(user:, credit_card: card)

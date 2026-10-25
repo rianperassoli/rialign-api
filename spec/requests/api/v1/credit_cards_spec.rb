@@ -84,6 +84,23 @@ RSpec.describe "Api::V1::CreditCards", type: :request do
       expect(json.dig("data", "account_id")).to eq(other.id)
     end
 
+    it "is cancelled by deleting the payment: the invoice reopens and the money returns" do
+      post "/api/v1/credit_cards/#{card.id}/pay_invoice", headers: auth_headers(user)
+      payment_id = json.dig("data", "id")
+
+      get "/api/v1/credit_cards/#{card.id}/invoice", headers: auth_headers(user)
+      expect(json.dig("data", "status")).to eq("paid")
+      expect(json.dig("data", "payments").pluck("id")).to eq([payment_id])
+
+      delete "/api/v1/transactions/#{payment_id}", headers: auth_headers(user)
+      expect(response).to have_http_status(:no_content)
+
+      get "/api/v1/credit_cards/#{card.id}/invoice", headers: auth_headers(user)
+      expect(json.dig("data", "pending").to_d).to eq(300)
+      expect(json.dig("data", "payments")).to be_empty
+      expect(Accounts::BalanceCalculator.new(user:).account_balance(account)).to eq(1000)
+    end
+
     it "returns 422 when there is no open invoice" do
       empty = create(:credit_card, user:, payment_account: account)
       post "/api/v1/credit_cards/#{empty.id}/pay_invoice", headers: auth_headers(user)

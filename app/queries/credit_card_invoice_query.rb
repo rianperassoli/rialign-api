@@ -40,7 +40,11 @@ class CreditCardInvoiceQuery
       # onto one (see Transaction#invoice_month_not_paid).
       previous_paid: self.class.paid?(@card, @month << 1),
       next_paid: self.class.paid?(@card, @month >> 1),
-      transactions: transactions
+      transactions: transactions,
+      # The payments that settled charges on this invoice; removing one
+      # reopens what it settled. Imported charges carry no link, so an
+      # imported invoice can read paid with no payment listed.
+      payments: @card.user.transactions.where(id: transactions.select(:settled_by_id)).order(date: :asc, id: :asc)
     }
   end
 

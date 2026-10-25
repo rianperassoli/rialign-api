@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_10_12_210000) do
+ActiveRecord::Schema[8.0].define(version: 2026_10_25_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -90,12 +90,14 @@ ActiveRecord::Schema[8.0].define(version: 2026_10_12_210000) do
     t.integer "installment_number"
     t.integer "installment_total"
     t.date "invoice_month"
+    t.bigint "settled_by_id"
     t.index ["account_id"], name: "index_transactions_on_account_id"
     t.index ["archived_at"], name: "index_transactions_on_archived_at"
     t.index ["category_id"], name: "index_transactions_on_category_id"
     t.index ["credit_card_id", "invoice_month"], name: "index_transactions_on_credit_card_id_and_invoice_month"
     t.index ["credit_card_id"], name: "index_transactions_on_credit_card_id"
     t.index ["series_id"], name: "index_transactions_on_series_id"
+    t.index ["settled_by_id"], name: "index_transactions_on_settled_by_id"
     t.index ["transfer_id"], name: "index_transactions_on_transfer_id"
     t.index ["user_id", "date"], name: "index_transactions_on_user_id_and_date"
     t.index ["user_id", "kind"], name: "index_transactions_on_user_id_and_kind"
@@ -119,5 +121,6 @@ ActiveRecord::Schema[8.0].define(version: 2026_10_12_210000) do
   add_foreign_key "transactions", "accounts"
   add_foreign_key "transactions", "categories"
   add_foreign_key "transactions", "credit_cards"
+  add_foreign_key "transactions", "transactions", column: "settled_by_id"
   add_foreign_key "transactions", "users"
 end

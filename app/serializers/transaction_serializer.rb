@@ -25,6 +25,7 @@ class TransactionSerializer < ApplicationSerializer
       account_id: object.account_id,
       credit_card_id: object.credit_card_id,
       invoice_month: object.invoice_month&.strftime("%Y-%m"),
+      settled_by_id: object.settled_by_id,
       transfer_id: object.transfer_id
     }
   end

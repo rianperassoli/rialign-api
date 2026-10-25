@@ -35,7 +35,8 @@ module Api
         result = CreditCardInvoiceQuery.new(@credit_card, month: invoice_month).call
 
         render json: {
-          data: result.merge(transactions: TransactionSerializer.collection(result[:transactions]))
+          data: result.merge(transactions: TransactionSerializer.collection(result[:transactions]),
+                             payments: TransactionSerializer.collection(result[:payments]))
         }
       end
 

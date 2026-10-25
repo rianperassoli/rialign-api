@@ -6,7 +6,8 @@ module CreditCards
   # recorded as a settlement leg on the payment account. That leg carries a
   # `transfer_id` so it lowers the account balance WITHOUT being double-counted
   # as a second expense in income/expense reports (the card transactions already
-  # represent the spending).
+  # represent the spending). Every charge it settles points back at it, so
+  # deleting the payment reopens them.
   #
   # The account defaults to the card's `payment_account`, but an explicit
   # `account_id` can override it (e.g. paying from a different account once).
@@ -37,10 +38,12 @@ module CreditCards
       ApplicationRecord.transaction do
         # Bulk update on purpose: flipping `paid` has no validations or callbacks
         # to run, and an invoice can cover hundreds of rows. updated_at is set
-        # explicitly since update_all skips timestamping.
-        pending.update_all(paid: true, updated_at: Time.current) # rubocop:disable Rails/SkipsModelValidations
+        # explicitly since update_all skips timestamping. The settlement is saved
+        # first so each charge can point at it — that link is what lets the
+        # payment be cancelled (see Transaction#archive!).
         settlement = build_settlement(account:, total:)
         settlement.save!
+        pending.update_all(paid: true, settled_by_id: settlement.id, updated_at: Time.current) # rubocop:disable Rails/SkipsModelValidations
       end
       success(transaction: settlement, amount: total, account: account)
     rescue ActiveRecord::RecordInvalid => e

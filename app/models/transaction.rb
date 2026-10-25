@@ -16,6 +16,7 @@
 # the `non_transfer` scope (see DashboardQuery).
 class Transaction < ApplicationRecord
   include SoftDeletable
+  include InvoiceSettlement
 
   KINDS = %w[income expense].freeze
 
