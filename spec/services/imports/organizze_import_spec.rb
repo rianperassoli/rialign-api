@@ -122,8 +122,8 @@ RSpec.describe Imports::OrganizzeImport do
 
   describe "money movements" do
     # Transfer legs move the balance but are not spending, so they carry a
-    # transfer_id and no category — the export never identifies the other leg.
-    it "imports transfers and invoice payments as unpaired transfer legs" do
+    # transfer_id and no category. A lone side stays unpaired.
+    it "imports transfers and invoice payments as transfer legs" do
       import({ "NuBank" => [["01.08.2026", "Envio", "Transferências", -100.0, "Pago"],
                             ["02.08.2026", "Fatura", "Pagamento de fatura", -200.0, "Pago"]] })
 
@@ -131,6 +131,34 @@ RSpec.describe Imports::OrganizzeImport do
       expect(user.transactions.all?(&:transfer?)).to be(true)
       expect(user.transactions.pluck(:category_id).compact).to be_empty
       expect(user.transactions.pluck(:transfer_id).uniq.size).to eq(2)
+    end
+
+    it "pairs the two sides of a transfer across sheets by date and amount" do
+      result = import({ "NuBank" => [["01.08.2026", "Envio", "Transferências", -100.0, "Pago"],
+                                     ["01.08.2026", "Envio", "Transferências", -100.0, "Pago"],
+                                     ["05.08.2026", "Envio", "Transferências", -30.0, "Pago"]],
+                        "Carteira" => [["01.08.2026", "Recebido", "Transferências", 100.0, "Pago"],
+                                       ["01.08.2026", "Recebido", "Transferências", 100.0, "Pago"],
+                                       ["05.08.2026", "Recebido", "Transferências", 31.0, "Pago"]] })
+
+      expect(result.data).to include(transfers_paired: 2, transfers_unpaired: 2)
+      pairs = user.transactions.group(:transfer_id).count.values
+      expect(pairs.sort).to eq([1, 1, 2, 2])
+      user.transactions.where(amount: 100).group_by(&:transfer_id).each_value do |legs|
+        expect(legs.map { |leg| leg.account.name }).to contain_exactly("NuBank", "Carteira")
+      end
+    end
+
+    it "never pairs two sides on the same account" do
+      result = import({ "NuBank" => [["01.08.2026", "Ida", "Transferências", -100.0, "Pago"],
+                                     ["01.08.2026", "Volta", "Transferências", 100.0, "Pago"]] })
+      expect(result.data).to include(transfers_paired: 0, transfers_unpaired: 2)
+    end
+
+    it "leaves invoice payments unpaired" do
+      result = import({ "NuBank" => [["01.08.2026", "Fatura", "Pagamento de fatura", -100.0, "Pago"]],
+                        "Carteira" => [["01.08.2026", "Recebido", "Transferências", 100.0, "Pago"]] })
+      expect(result.data).to include(transfers_paired: 0, transfers_unpaired: 1)
     end
   end
 

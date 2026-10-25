@@ -4,12 +4,15 @@ module Api
       before_action :set_legs, only: %i[show update destroy]
 
       # GET /api/v1/transfers
-      # One row per transfer (its source/expense leg on an account), most recent
-      # first. A partial invoice payment's remaining balance is a card leg of
-      # the same payment, so it is left out.
+      # One row per transfer, with both sides (see TransferSerializer), most
+      # recent first. Paged by one leg per transfer — its outgoing side, or the
+      # only side an unpaired one has. Invoice payments are left out: they are
+      # listed and undone on their invoice.
       def index
-        legs = current_user.transactions.transfers.expense.where(credit_card_id: nil).order(date: :desc, id: :desc)
-        render_collection(legs, serializer: TransactionSerializer)
+        render_page(listed_legs.order(date: :desc, id: :desc)) do |legs|
+          sides = current_user.transactions.where(transfer_id: legs.map(&:transfer_id)).group_by(&:transfer_id)
+          legs.map { |leg| TransferSerializer.new(sides[leg.transfer_id]).as_json }
+        end
       end
 
       # GET /api/v1/transfers/:id   (:id is the shared transfer_id)
@@ -47,6 +50,13 @@ module Api
       end
 
       private
+
+      def listed_legs
+        payments = current_user.transactions.where.not(settled_by_id: nil).select(:settled_by_id)
+        legs = current_user.transactions.transfers.where(credit_card_id: nil).where.not(id: payments)
+        outgoing = legs.where(kind: "expense")
+        outgoing.or(legs.where.not(transfer_id: outgoing.select(:transfer_id)))
+      end
 
       def set_legs
         @legs = current_user.transactions.where(transfer_id: params.expect(:id)).order(:id).to_a

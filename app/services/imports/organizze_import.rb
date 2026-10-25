@@ -20,8 +20,9 @@ module Imports
   #    file is the same label CreditCardInvoiceQuery uses.
   #  - `Transferências` and `Pagamento de fatura` are money movements, not
   #    spending: each row becomes a transfer leg (a `transfer_id`, no category),
-  #    so it moves the balance but stays out of income/expense reports. Legs are
-  #    not paired — the export does not identify the other side.
+  #    so it moves the balance but stays out of income/expense reports. The two
+  #    sides of a transfer are paired afterwards (see TransferPairing); an
+  #    invoice payment's card side is not in the export, so it stays one leg.
   #  - A category name can appear with both signs (`Compras` has 757 expenses and
   #    1 income), and Category#kind must match the transaction, so each name maps
   #    to one category PER KIND.
@@ -32,7 +33,7 @@ module Imports
   # Rows that cannot be represented are skipped and counted in the report rather
   # than aborting the run: a zero amount (Transaction requires > 0).
   class OrganizzeImport < ApplicationService
-    TRANSFER_CATEGORIES = ["Transferências", "Pagamento de fatura"].freeze
+    TRANSFER_CATEGORIES = [TransferPairing::CATEGORY, "Pagamento de fatura"].freeze
 
     # `open_from` is the first invoice month that is still open; charges from it
     # onward are imported pending.
@@ -54,6 +55,7 @@ module Imports
       @replace_existing = replace_existing
       @report = Hash.new(0)
       @categories = {}
+      @pairing = TransferPairing.new
     end
 
     def call
@@ -66,6 +68,7 @@ module Imports
       ApplicationRecord.transaction do
         wipe_existing if @replace_existing
         book.worksheets.each { |sheet| import_sheet(sheet) }
+        @report.merge!(@pairing.call)
       end
       success(@report)
     rescue ActiveRecord::RecordInvalid => e
@@ -127,7 +130,8 @@ module Imports
       card = source.is_a?(CreditCard)
       @report[:card_credits] += 1 if card && amount.positive?
 
-      @user.transactions.create!(attributes_for(row, date:, amount:, source:, card:))
+      transaction = @user.transactions.create!(attributes_for(row, date:, amount:, source:, card:))
+      @pairing.add(transaction, category: row[2])
       @report[:imported] += 1
     end
 

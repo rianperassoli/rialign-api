@@ -72,14 +72,24 @@ RSpec.describe "Api::V1::Transfers", type: :request do
   end
 
   describe "GET /api/v1/transfers" do
-    it "lists one row per transfer" do
-      Transfers::CreateTransfer.call(user:,
-                                     params: { from_account_id: from.id,
-                                               to_account_id: to.id, amount: 100, date: Date.current })
+    it "lists each transfer once with both sides, skipping invoice payments" do
+      Transfers::CreateTransfer.call(user:, params: { from_account_id: from.id, to_account_id: to.id,
+                                                      amount: 100, date: Date.current })
+      lone = user.transactions.create!(account: to, kind: "income", amount: 7, date: Date.current - 1,
+                                       description: "Pix", transfer_id: SecureRandom.uuid)
+      card = create(:credit_card, user:, payment_account: from)
+      create(:transaction, user:, credit_card: card, account: nil, amount: 50, paid: false)
+      CreditCards::PayInvoice.call(user:, credit_card: card,
+                                   params: { month: card.current_invoice_month.strftime("%Y-%m") })
+
       get "/api/v1/transfers", headers: auth_headers(user)
-      expect(response).to have_http_status(:ok)
-      expect(json["data"].size).to eq(1)
-      expect(json["data"].first["transfer_id"]).to be_present
+
+      expect(json["data"].map { |row| row.slice("from_account_id", "to_account_id", "transfer_id") }).to eq(
+        [{ "from_account_id" => from.id, "to_account_id" => to.id,
+           "transfer_id" => json.dig("data", 0, "transfer_id") },
+         { "from_account_id" => nil, "to_account_id" => to.id, "transfer_id" => lone.transfer_id }]
+      )
+      expect(json.dig("meta", "pagination", "count")).to eq(2)
     end
   end
 
