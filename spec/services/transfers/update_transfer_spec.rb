@@ -57,7 +57,9 @@ RSpec.describe Transfers::UpdateTransfer, type: :service do
   it "refuses to edit an invoice payment, which is undone from the invoice instead" do
     card = create(:credit_card, user:, payment_account: from)
     create(:transaction, user:, credit_card: card, account: nil, amount: 80, paid: false)
-    payment = CreditCards::PayInvoice.call(user:, credit_card: card).data[:transaction]
+    payment = CreditCards::PayInvoice.call(user:, credit_card: card,
+                                           params: { month: card.current_invoice_month.strftime("%Y-%m") })
+                                     .data[:transaction]
 
     expect(update(amount: 10, on: [payment])).to be_failure
     expect(payment.reload.amount).to eq(80)

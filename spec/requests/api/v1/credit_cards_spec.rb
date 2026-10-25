@@ -64,13 +64,14 @@ RSpec.describe "Api::V1::CreditCards", type: :request do
   describe "POST /api/v1/credit_cards/:id/pay_invoice" do
     let(:account) { create(:account, user:, initial_balance: 1000) }
     let(:card) { create(:credit_card, user:, payment_account: account) }
+    let(:month_params) { { payment: { month: card.current_invoice_month.strftime("%Y-%m") } }.to_json }
 
     before do
       create(:transaction, user:, credit_card: card, account: nil, kind: "expense", amount: 300, paid: false)
     end
 
     it "settles the invoice and returns the settlement transaction" do
-      post "/api/v1/credit_cards/#{card.id}/pay_invoice", headers: auth_headers(user)
+      post "/api/v1/credit_cards/#{card.id}/pay_invoice", params: month_params, headers: auth_headers(user)
       expect(response).to have_http_status(:created)
       expect(json.dig("data", "account_id")).to eq(account.id)
       expect(json.dig("data", "transfer_id")).to be_present
@@ -79,13 +80,13 @@ RSpec.describe "Api::V1::CreditCards", type: :request do
 
     it "accepts an explicit payment account" do
       other = create(:account, user:, name: "Other")
-      params = { payment: { account_id: other.id } }
+      params = { payment: { account_id: other.id, month: card.current_invoice_month.strftime("%Y-%m") } }
       post "/api/v1/credit_cards/#{card.id}/pay_invoice", params: params.to_json, headers: auth_headers(user)
       expect(json.dig("data", "account_id")).to eq(other.id)
     end
 
     it "is cancelled by deleting the payment: the invoice reopens and the money returns" do
-      post "/api/v1/credit_cards/#{card.id}/pay_invoice", headers: auth_headers(user)
+      post "/api/v1/credit_cards/#{card.id}/pay_invoice", params: month_params, headers: auth_headers(user)
       payment_id = json.dig("data", "id")
 
       get "/api/v1/credit_cards/#{card.id}/invoice", headers: auth_headers(user)
@@ -108,7 +109,9 @@ RSpec.describe "Api::V1::CreditCards", type: :request do
       expect(json.dig("data", "amount").to_d).to eq(100)
       first_id = json.dig("data", "id")
 
-      post "/api/v1/credit_cards/#{card.id}/pay_invoice", headers: auth_headers(user)
+      next_month = (card.current_invoice_month >> 1).strftime("%Y-%m")
+      post "/api/v1/credit_cards/#{card.id}/pay_invoice", params: { payment: { month: next_month } }.to_json,
+                                                          headers: auth_headers(user)
       delete "/api/v1/transactions/#{first_id}", headers: auth_headers(user)
       expect(response).to have_http_status(:unprocessable_entity)
       expect(json["errors"].first).to match(/undo that payment first/)
@@ -116,7 +119,7 @@ RSpec.describe "Api::V1::CreditCards", type: :request do
 
     it "returns 422 when there is no open invoice" do
       empty = create(:credit_card, user:, payment_account: account)
-      post "/api/v1/credit_cards/#{empty.id}/pay_invoice", headers: auth_headers(user)
+      post "/api/v1/credit_cards/#{empty.id}/pay_invoice", params: month_params, headers: auth_headers(user)
       expect(response).to have_http_status(:unprocessable_entity)
     end
   end

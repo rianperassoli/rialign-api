@@ -4,6 +4,8 @@ RSpec.describe CreditCards::PayInvoice, type: :service do
   let(:user) { create(:user) }
   let(:account) { create(:account, user:, initial_balance: 1000) }
   let(:card) { create(:credit_card, user:, payment_account: account) }
+  # Charges dated today land on the invoice accumulating charges today.
+  let(:current_month) { card.current_invoice_month.strftime("%Y-%m") }
 
   def add_card_expense(amount, paid: false)
     create(:transaction, user:, credit_card: card, account: nil, kind: "expense",
@@ -14,7 +16,7 @@ RSpec.describe CreditCards::PayInvoice, type: :service do
     add_card_expense(200)
     add_card_expense(150)
 
-    result = described_class.call(user:, credit_card: card)
+    result = described_class.call(user:, credit_card: card, params: { month: current_month })
     expect(result).to be_success
     expect(result.data[:amount]).to eq(350)
 
@@ -33,7 +35,7 @@ RSpec.describe CreditCards::PayInvoice, type: :service do
     add_card_expense(200)
     credit = add_card_credit(50)
 
-    result = described_class.call(user:, credit_card: card)
+    result = described_class.call(user:, credit_card: card, params: { month: current_month })
     expect(result.data[:amount]).to eq(150)
     expect(credit.reload.paid).to be(true)
   end
@@ -42,14 +44,14 @@ RSpec.describe CreditCards::PayInvoice, type: :service do
     add_card_expense(20)
     credit = add_card_credit(50)
 
-    result = described_class.call(user:, credit_card: card)
+    result = described_class.call(user:, credit_card: card, params: { month: current_month })
     expect(result).to be_failure
     expect(credit.reload.paid).to be(false)
   end
 
   it "links every charge it settles to the payment" do
     charge = add_card_expense(200)
-    settlement = described_class.call(user:, credit_card: card).data[:transaction]
+    settlement = described_class.call(user:, credit_card: card, params: { month: current_month }).data[:transaction]
 
     expect(charge.reload.settled_by).to eq(settlement)
     expect(settlement.settled_charges).to contain_exactly(charge)
@@ -59,7 +61,7 @@ RSpec.describe CreditCards::PayInvoice, type: :service do
     earlier = add_card_expense(80, paid: true)
     charge = add_card_expense(200)
     archived = add_card_expense(10)
-    settlement = described_class.call(user:, credit_card: card).data[:transaction]
+    settlement = described_class.call(user:, credit_card: card, params: { month: current_month }).data[:transaction]
     archived.reload.archive!
 
     settlement.destroy
@@ -72,7 +74,7 @@ RSpec.describe CreditCards::PayInvoice, type: :service do
 
   it "does nothing more when an already removed payment is removed again" do
     add_card_expense(200)
-    settlement = described_class.call(user:, credit_card: card).data[:transaction]
+    settlement = described_class.call(user:, credit_card: card, params: { month: current_month }).data[:transaction]
     settlement.destroy
     reopened = card.transactions.sole
     reopened.update!(paid: true)
@@ -135,12 +137,6 @@ RSpec.describe CreditCards::PayInvoice, type: :service do
       expect(card.transactions.pending.count).to eq(1)
     end
 
-    it "needs the invoice month to know where the rest goes" do
-      add_card_expense(300)
-      result = described_class.call(user:, credit_card: card, params: { amount: 100 })
-      expect(result.errors).to include("A partial payment needs the invoice month")
-    end
-
     it "is a full payment when the amount is the whole total" do
       add_card_expense(300)
       expect(pay(300).data[:remaining]).to eq(0)
@@ -150,13 +146,13 @@ RSpec.describe CreditCards::PayInvoice, type: :service do
 
   it "marks the card's pending expenses as paid" do
     add_card_expense(200)
-    described_class.call(user:, credit_card: card)
+    described_class.call(user:, credit_card: card, params: { month: current_month })
     expect(card.transactions.expense.pending.count).to eq(0)
   end
 
   it "lowers the account balance without inflating reported expense" do
     charge = add_card_expense(200)
-    described_class.call(user:, credit_card: card)
+    described_class.call(user:, credit_card: card, params: { month: current_month })
 
     expect(Accounts::BalanceCalculator.new(user:).account_balance(account)).to eq(800)
 
@@ -166,22 +162,34 @@ RSpec.describe CreditCards::PayInvoice, type: :service do
     expect(dashboard[:totals][:expense]).to eq(200)
   end
 
+  it "requires the invoice month, never settling every pending charge on its own" do
+    add_card_expense(300)
+    create(:transaction, user:, credit_card: card, account: nil, amount: 50, paid: false,
+                         invoice_month: card.current_invoice_month >> 3)
+
+    %w[nil 2026-13].each do |month|
+      result = described_class.call(user:, credit_card: card, params: { month: month == "nil" ? nil : month })
+      expect(result.errors).to include("Invoice month is required (YYYY-MM)")
+    end
+    expect(card.transactions.pending.count).to eq(2)
+  end
+
   it "fails when there is no open invoice" do
-    result = described_class.call(user:, credit_card: card)
+    result = described_class.call(user:, credit_card: card, params: { month: current_month })
     expect(result).to be_failure
   end
 
   it "fails when no payment account is set and none is given" do
     card.update!(payment_account: nil)
     add_card_expense(200)
-    result = described_class.call(user:, credit_card: card)
+    result = described_class.call(user:, credit_card: card, params: { month: current_month })
     expect(result).to be_failure
   end
 
   it "returns a failure (and writes nothing) when the settlement is invalid" do
     add_card_expense(200)
     expect do
-      result = described_class.call(user:, credit_card: card, params: { date: "not-a-date" })
+      result = described_class.call(user:, credit_card: card, params: { date: "not-a-date", month: current_month })
       expect(result).to be_failure
     end.not_to change(user.transactions.non_transfer, :count)
     # the rolled-back update_all left the invoice untouched
@@ -191,7 +199,7 @@ RSpec.describe CreditCards::PayInvoice, type: :service do
   it "accepts an explicit account override" do
     other = create(:account, user:, name: "Other")
     add_card_expense(200)
-    result = described_class.call(user:, credit_card: card, params: { account_id: other.id })
+    result = described_class.call(user:, credit_card: card, params: { account_id: other.id, month: current_month })
     expect(result.data[:transaction].account_id).to eq(other.id)
   end
 end

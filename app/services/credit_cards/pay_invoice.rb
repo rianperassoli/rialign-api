@@ -12,16 +12,17 @@ module CreditCards
   # The account defaults to the card's `payment_account`, but an explicit
   # `account_id` can override it (e.g. paying from a different account once).
   #
-  # With a `month` (YYYY-MM) param only the charges on that invoice and earlier
-  # ones still unpaid are settled — later invoices stay open. Without it, every
-  # pending charge on the card is settled.
+  # The `month` (YYYY-MM) names the invoice being paid and is required: the
+  # charges on that invoice and earlier ones still unpaid are settled, later
+  # invoices stay open. There is deliberately no "pay everything" default — it
+  # would also settle every future installment already booked on the card.
   #
   # An `amount` below the total is a partial payment, as Organizze does it: the
   # invoice is still settled, and what was left unpaid moves to the next invoice
   # as one "remaining balance" charge. That charge is a second leg of the same
   # payment (same `transfer_id`): it uses the card limit, stays out of reports
   # (the purchases behind it were already counted) and goes away with the
-  # payment when it is undone. It needs a `month`, the invoice it rolls out of.
+  # payment when it is undone.
   class PayInvoice < ApplicationService
     def initialize(user:, credit_card:, params: {})
       @user = user
@@ -30,14 +31,15 @@ module CreditCards
     end
 
     def call
+      return failure("Invoice month is required (YYYY-MM)") if invoice_month.nil?
+
       account = resolve_account
       return failure("No payment account set for this card") if account.nil?
 
       # Pending credits are settled with the charges they offset. When credits
       # outweigh the charges there is nothing to pay: they stay pending and
       # carry over to the next invoice.
-      pending = @card.transactions.pending
-      pending = pending.where(invoice_month: ..invoice_month) if invoice_month
+      pending = @card.transactions.pending.where(invoice_month: ..invoice_month)
       total = pending.charged_total
       return failure("No open invoice to pay") unless total.positive?
 
@@ -80,12 +82,11 @@ module CreditCards
 
     def amount_error(paying, total)
       return "Amount must be greater than zero" unless paying.positive?
-      return "Amount cannot exceed the invoice total" if paying > total
 
-      "A partial payment needs the invoice month" if paying < total && invoice_month.nil?
+      "Amount cannot exceed the invoice total" if paying > total
     end
 
-    # The requested invoice month, or nil to pay everything.
+    # The requested invoice month, or nil when missing or unreadable.
     def invoice_month
       return @invoice_month if defined?(@invoice_month)
 

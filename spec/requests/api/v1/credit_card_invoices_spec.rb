@@ -71,13 +71,13 @@ RSpec.describe "Api::V1::CreditCards invoices", type: :request do
       expect(card.transactions.pending.sum(:amount)).to eq(40)
     end
 
-    it "ignores an invalid month and settles everything" do
-      post "/api/v1/credit_cards/#{card.id}/pay_invoice",
-           params: { payment: { month: "bogus" } }.to_json,
-           headers: auth_headers(user)
+    it "refuses an invalid or missing month instead of settling everything" do
+      [{ payment: { month: "bogus" } }, {}].each do |body|
+        post "/api/v1/credit_cards/#{card.id}/pay_invoice", params: body.to_json, headers: auth_headers(user)
 
-      expect(response).to have_http_status(:created)
-      expect(card.transactions.pending.count).to eq(0)
+        expect(response).to have_http_status(:unprocessable_entity)
+      end
+      expect(card.transactions.pending.count).to eq(2)
     end
   end
 end
