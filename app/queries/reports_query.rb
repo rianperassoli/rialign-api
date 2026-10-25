@@ -1,7 +1,10 @@
 # Aggregates historical figures for the reports screen:
-#   - monthly: paid income/expense/net for each of the last `months` months
+#   - monthly: income/expense/net for each of the last `months` months
 #     (every month is present, zero-filled, so charts get a continuous axis)
-#   - by_category: paid expense totals per category over the same window
+#   - by_category: expense totals per category over the same window
+#
+# Both count what DashboardQuery counts: settled account money by date, and
+# card charges in the month their invoice is due, paid or not.
 #
 # Transfers and invoice settlements are excluded, like every other report
 # (see Transaction#non_transfer).
@@ -26,11 +29,11 @@ class ReportsQuery
   private
 
   def scoped
-    @scoped ||= @user.transactions.non_transfer.paid.between(@from, @to)
+    @scoped ||= @user.transactions.non_transfer.booked.reported_between(@from, @to)
   end
 
   def monthly
-    sums = scoped.group(Arel.sql("to_char(date, 'YYYY-MM')"), :kind).sum(:amount)
+    sums = scoped.group(Arel.sql("to_char(#{Transaction::REPORT_DATE}, 'YYYY-MM')"), :kind).sum(:amount)
 
     (0...@months).map do |offset|
       key = (@from >> offset).strftime("%Y-%m")

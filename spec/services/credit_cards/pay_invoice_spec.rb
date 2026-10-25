@@ -88,13 +88,14 @@ RSpec.describe CreditCards::PayInvoice, type: :service do
   end
 
   it "lowers the account balance without inflating reported expense" do
-    add_card_expense(200)
+    charge = add_card_expense(200)
     described_class.call(user:, credit_card: card)
 
     expect(Accounts::BalanceCalculator.new(user:).account_balance(account)).to eq(800)
 
-    dashboard = DashboardQuery.new(user).call
-    # The card expense counts once; the settlement leg is excluded.
+    # The card expense counts once, in its invoice month; the settlement leg
+    # (paid today, on the account) is excluded.
+    dashboard = DashboardQuery.new(user, month: charge.invoice_month).call
     expect(dashboard[:totals][:expense]).to eq(200)
   end
 

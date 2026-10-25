@@ -33,6 +33,17 @@ class Transaction < ApplicationRecord
   scope :non_transfer, -> { where(transfer_id: nil) }
   scope :in_series,    ->(series_id) { where(series_id:) }
 
+  # Reports place a card charge in the month its invoice is due, and anything
+  # on an account on its own date — the way Organizze reports card spending.
+  REPORT_DATE = Arel.sql("COALESCE(transactions.invoice_month, transactions.date)")
+  scope :reported_between, ->(from, to) { where(REPORT_DATE.between(from..to)) }
+  # What a report counts as real: settled account money, and every card charge
+  # or credit whether its invoice is paid yet or not — the purchase is already
+  # made, so the month's spending no longer depends on when the bill is paid.
+  scope :booked,    -> { paid.or(where.not(credit_card_id: nil)) }
+  # Account entries still scheduled: the forecast. Card charges never are.
+  scope :scheduled, -> { pending.where(credit_card_id: nil) }
+
   validates :description, presence: true
   validates :kind, presence: true, inclusion: { in: KINDS }
   validates :amount, numericality: { greater_than: 0 }

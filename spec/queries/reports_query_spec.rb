@@ -31,6 +31,15 @@ RSpec.describe ReportsQuery do
                                        ])
   end
 
+  it "places a card charge in its invoice month, paid or not" do
+    card = create(:credit_card, user:, closing_day: 20, due_day: 1)
+    # Bought on 25/03, after the closing: billed on the invoice due in May.
+    create(:transaction, user:, category: food, account: nil, credit_card: card, amount: 40,
+                         date: Date.new(2026, 3, 25), paid: false)
+
+    expect(result[:monthly].pluck(:month, :expense)).to eq([["2026-03", 0], ["2026-04", 200], ["2026-05", 140]])
+  end
+
   it "clamps months to the maximum window" do
     query = described_class.new(user, months: 999)
     expect(query.call[:monthly].size).to eq(described_class::MAX_MONTHS)

@@ -1,9 +1,13 @@
 # Aggregates a user's financial picture for a given month.
 #
 # Returns plain hashes (not AR objects) ready for the DashboardSerializer:
-#  - totals: income / expense / net for the month (paid only)
-#  - forecast: pending income/expense still scheduled in the month
+#  - totals: income / expense / net for the month — settled account money plus
+#    every card charge on the invoice due this month, paid or not
+#  - forecast: account income/expense still scheduled in the month
 #  - by_category: expense breakdown for charts
+#
+# Card charges are placed by invoice, account entries by date (see
+# Transaction.reported_between / .booked).
 class DashboardQuery
   def initialize(user, month: Date.current.beginning_of_month)
     @user = user
@@ -25,19 +29,19 @@ class DashboardQuery
   def scoped
     # Transfers and invoice settlements move money around without being real
     # income or expense, so they are excluded from every report figure.
-    @scoped ||= @user.transactions.non_transfer.between(@from, @to)
+    @scoped ||= @user.transactions.non_transfer.reported_between(@from, @to)
   end
 
   def totals
-    paid = scoped.paid
-    income = paid.income.sum(:amount)
-    expense = paid.expense.sum(:amount)
+    booked = scoped.booked
+    income = booked.income.sum(:amount)
+    expense = booked.expense.sum(:amount)
     { income:, expense:, net: income - expense }
   end
 
   def forecast
-    pending = scoped.pending
-    { income: pending.income.sum(:amount), expense: pending.expense.sum(:amount) }
+    scheduled = scoped.scheduled
+    { income: scheduled.income.sum(:amount), expense: scheduled.expense.sum(:amount) }
   end
 
   # Includes name/color so the UI can chart categories without extra lookups.

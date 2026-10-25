@@ -38,6 +38,38 @@ RSpec.describe DashboardQuery do
                                        ])
   end
 
+  # Card charges count in the month their invoice is due, paid or not, so the
+  # month's spending does not move when the bill gets paid.
+  describe "card charges" do
+    let(:card) { create(:credit_card, user:, closing_day: 20, due_day: 1) }
+
+    def charge(amount, date, paid: false, kind: "expense", invoice_month: nil)
+      category = kind == "expense" ? food : income_cat
+      create(:transaction, user:, category:, account: nil, credit_card: card, kind:, amount:, date:, paid:,
+                           invoice_month:)
+    end
+
+    before do
+      charge(120, Date.new(2026, 4, 10))                    # invoice due May, still pending
+      charge(30, Date.new(2026, 4, 12), paid: true)         # invoice due May, already paid
+      charge(15, Date.new(2026, 4, 15), kind: "income")     # credit on the May invoice
+      charge(70, Date.new(2026, 5, 10))                     # invoice due June
+      charge(55, Date.new(2026, 4, 1), invoice_month: Date.new(2026, 6, 1)) # pushed to June
+    end
+
+    it "counts every charge on the invoice due this month in the totals, paid or not" do
+      expect(result[:totals]).to eq(income: 5015, expense: 350, net: 4665)
+    end
+
+    it "keeps them out of the forecast, which is account entries still scheduled" do
+      expect(result[:forecast]).to eq(income: 0, expense: 800)
+    end
+
+    it "breaks them down by category in the invoice month" do
+      expect(result[:by_category].find { |row| row[:category_id] == food.id }[:total]).to eq(350)
+    end
+  end
+
   it "defaults to the current month when none is given" do
     res = described_class.new(user).call
     expect(res[:period][:from]).to eq(Date.current.beginning_of_month)
