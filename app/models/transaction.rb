@@ -3,9 +3,10 @@
 # A transaction is booked against EXACTLY ONE source: a bank Account or a
 # CreditCard. `amount` is always stored as a positive decimal; `kind`
 # determines its effect on balances. On a card, an expense is a charge and an
-# income is a credit (refund, "estorno") that lowers its invoice. `paid` distinguishes settled money
-# (counts toward balance) from scheduled/pending money (shown on dashboard
-# forecasts only).
+# income is a credit (refund, "estorno") that lowers its invoice. `paid`
+# distinguishes settled money (counts toward balance) from scheduled/pending
+# money (shown on dashboard forecasts only). What it may point at is ruled by
+# TransactionReferences.
 #
 # A `transfer_id` marks money-movement legs that affect account balances but
 # must NOT appear as real spending/earning in income/expense reports:
@@ -17,13 +18,11 @@
 class Transaction < ApplicationRecord
   include SoftDeletable
   include InvoiceSettlement
+  include TransactionReferences
 
   KINDS = %w[income expense].freeze
 
   belongs_to :user
-  belongs_to :category, optional: true
-  belongs_to :account,     optional: true
-  belongs_to :credit_card, optional: true
 
   scope :income,       -> { where(kind: "income") }
   scope :expense,      -> { where(kind: "expense") }
@@ -48,9 +47,6 @@ class Transaction < ApplicationRecord
   before_validation :default_paid_by_source, on: :create
   before_validation :assign_invoice_month
 
-  validate :exactly_one_source
-  validate :category_required
-  validate :category_kind_matches
   validate :installment_fields_consistent
   validate :invoice_month_not_paid, on: :update
 
@@ -124,28 +120,6 @@ class Transaction < ApplicationRecord
     else
       self.invoice_month = invoice_month.beginning_of_month
     end
-  end
-
-  # Every regular transaction needs a real category; transfer legs intentionally
-  # carry none. Checking the loaded record (not just the id) also rejects a
-  # category_id that points to nothing.
-  def category_required
-    return if transfer? || category.present?
-
-    errors.add(:category, "must be present")
-  end
-
-  def exactly_one_source
-    sources = [account_id, credit_card_id].compact
-    return if sources.size == 1
-
-    errors.add(:base, "must reference exactly one account or credit card")
-  end
-
-  def category_kind_matches
-    return if category.blank? || category.kind == kind
-
-    errors.add(:category, "kind must match the transaction kind")
   end
 
   # A charge cannot be moved onto an invoice that is already paid: it would

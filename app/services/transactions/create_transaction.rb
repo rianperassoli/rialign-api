@@ -2,8 +2,9 @@ module Transactions
   # Creates a transaction owned by `user`.
   #
   # Why a service and not just `Transaction.create`?
-  #  - It resolves & authorizes the category/account/credit_card against the
-  #    current user (preventing cross-user references).
+  #  - It builds the record through the user, so ownership is never taken from
+  #    the params (references to another user's category/account/card are
+  #    rejected by the model, see TransactionReferences).
   #  - It is the single seam where future side effects live (recalculating
   #    cached balances, emitting events, scheduling installments...).
   class CreateTransaction < ApplicationService

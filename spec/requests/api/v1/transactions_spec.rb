@@ -29,6 +29,16 @@ RSpec.describe "Api::V1::Transactions", type: :request do
       expect(response).to have_http_status(:unauthorized)
     end
 
+    it "refuses to book on another user's account, leaving its balance alone" do
+      victim = create(:account, initial_balance: 500)
+      payload[:transaction][:account_id] = victim.id
+
+      post "/api/v1/transactions", params: payload.to_json, headers: auth_headers(user)
+
+      expect(response).to have_http_status(:unprocessable_entity)
+      expect(Accounts::BalanceCalculator.new(user: victim.user).account_balance(victim)).to eq(500)
+    end
+
     it "returns validation errors" do
       payload[:transaction][:amount] = -5
       post "/api/v1/transactions", params: payload.to_json, headers: auth_headers(user)
