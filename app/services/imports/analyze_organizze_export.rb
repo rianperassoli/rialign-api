@@ -43,12 +43,15 @@ module Imports
 
     private
 
-    # What the account would hold from its rows alone. The export carries no
-    # opening balance, so this is what the user corrects to the balance
-    # Organizze shows (see OrganizzeImport's `current_balance`).
+    # What the account would hold from its rows alone — the settled ones, as
+    # the import counts them (an entry still to be paid or a projected invoice
+    # does not move it yet). The export carries no opening balance, so this is
+    # what the user corrects to the balance Organizze shows (see
+    # OrganizzeImport's `current_balance`).
     def rows_balance(sheet)
       1.upto(sheet.row_count - 1).sum(BigDecimal(0)) do |i|
-        BigDecimal(sheet.row(i)[OrganizzeFormat::AMOUNT].to_f.to_s)
+        row = sheet.row(i)
+        OrganizzeFormat.settled_account_row?(row) ? BigDecimal(row[OrganizzeFormat::AMOUNT].to_f.to_s) : 0
       end
     end
 
@@ -66,6 +69,9 @@ module Imports
     def invoice_spans(sheet)
       1.upto(sheet.row_count - 1).each_with_object({}) do |i, acc|
         row = sheet.row(i)
+        # A projected invoice row is dated on its due day, not on a purchase.
+        next if OrganizzeFormat.invoice_bill?(row)
+
         month = OrganizzeFormat.parse_invoice_month(row[OrganizzeFormat::STATUS])
         date = OrganizzeFormat.parse_date(row[OrganizzeFormat::DATE])
         next if month.nil? || date.nil?

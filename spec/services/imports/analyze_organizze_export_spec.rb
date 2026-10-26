@@ -114,6 +114,18 @@ RSpec.describe Imports::AnalyzeOrganizzeExport do
     expect(accounts.pluck(:currency)).to eq(%w[USD USD USD EUR GBP BRL])
   end
 
+  it "leaves projected invoices and entries still to be paid out of the balance and the closing day" do
+    result = analyze({ "NuBank" => [["01.10.2026", "Mercado", "Mercado", -50.0, "Pago"],
+                                    ["10.11.2026", "Fatura Novembro 2026", nil, -100.0, "Não pago"],
+                                    ["15.11.2026", "Aluguel", "Casa", -900.0, "Não pago"]],
+                       "MP - Cartão" => [["20.09.2026", "Livro", "Compras", -30.0, "Outubro/2026"],
+                                         ["28.09.2026", "Café", "Compras", -10.0, "Novembro/2026"],
+                                         ["04.10.2026", "Fatura Outubro 2026", nil, -30.0, "Outubro/2026"]] })
+
+    expect(result[:accounts].sole[:balance]).to eq("-50.0")
+    expect(result[:credit_cards].sole[:closing_day]).to eq(27)
+  end
+
   it "reports a sheet that has only a header" do
     expect(analyze({ "Vazia" => [] })[:accounts]).to eq([{ name: "Vazia", rows: 0, balance: "0.0", currency: "BRL" }])
   end

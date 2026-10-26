@@ -11,8 +11,10 @@ module Imports
   #
   #  - `Valor` carries the sign: negative is an expense, positive an income. The
   #    stored amount is always positive (`kind` carries the direction).
-  #  - `Situação` is "Pago" on every account row, and the invoice month on every
-  #    card row — it is the invoice a charge belongs to, NOT a payment status.
+  #  - `Situação` is the payment status on an account row — "Pago", or
+  #    "Não pago" for an entry scheduled ahead, which stays pending — and the
+  #    invoice month on every card row: the invoice a charge belongs to, NOT a
+  #    payment status.
   #    Card charges keep that invoice (Organizze lets a charge be pushed to a
   #    later one, so it cannot be re-derived from the date) and are settled
   #    when it is older than `open_from`.
@@ -29,6 +31,11 @@ module Imports
   #
   #  - A positive row on a card sheet ("Estorno", "Reembolso") is a credit: an
   #    income on the card that lowers the invoice it sits on.
+  #  - When the period reaches into the future, Organizze also lists each open
+  #    invoice itself ("Fatura Novembro 2026", no category): on the card sheet,
+  #    where it would double the invoice, and as an unpaid bill on the account
+  #    that pays it. Rialign builds invoices from their charges and books the
+  #    payment when it is made, so those rows are skipped.
   #
   # Rows that cannot be represented are skipped and counted in the report rather
   # than aborting the run: a zero amount (Transaction requires > 0).
@@ -126,6 +133,7 @@ module Imports
       amount = row[3].to_f
       return @report[:skipped_no_date] += 1 if date.nil?
       return @report[:skipped_zero] += 1 if amount.zero?
+      return @report[:skipped_invoice_bills] += 1 if OrganizzeFormat.invoice_bill?(row)
 
       card = source.is_a?(CreditCard)
       @report[:card_credits] += 1 if card && amount.positive?
@@ -153,21 +161,13 @@ module Imports
     end
 
     # A card charge keeps the invoice the file names (nil falls back to the one
-    # its date gives) and is settled by it; an account row is always settled.
+    # its date gives) and is settled by it; an account row is settled unless
+    # the file says it is still to be paid.
     def source_attributes(row, source:, card:)
-      return { account: source, paid: true } unless card
+      return { account: source, paid: row[4].to_s.strip == OrganizzeFormat::SETTLED } unless card
 
       { credit_card: source, invoice_month: OrganizzeFormat.parse_invoice_month(row[4]),
-        paid: settled_invoice?(row[4]) }
-    end
-
-    # Anything on an invoice older than `open_from` has already been paid. A row
-    # we cannot place stays pending.
-    def settled_invoice?(situacao)
-      return true if situacao.to_s.strip == OrganizzeFormat::SETTLED
-
-      month = OrganizzeFormat.parse_invoice_month(situacao)
-      month.present? && month < @open_from
+        paid: OrganizzeFormat.settled_invoice?(row[4], open_from: @open_from) }
     end
 
     # One category per (name, kind): the same name legitimately carries both

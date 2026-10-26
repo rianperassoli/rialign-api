@@ -29,6 +29,28 @@ module Imports
       name.match?(CARD_SUFFIX)
     end
 
+    # Whether a card row's invoice is already paid: anything on an invoice older
+    # than `open_from` (the first one still open). A row we cannot place stays
+    # pending.
+    def settled_invoice?(status, open_from:)
+      return true if status.to_s.strip == SETTLED
+
+      month = parse_invoice_month(status)
+      month.present? && month < open_from
+    end
+
+    # The invoice itself, listed when the export reaches into the future:
+    # "Fatura Novembro 2026", with no category.
+    def invoice_bill?(row)
+      row[CATEGORY].to_s.strip.empty? && row[DESCRIPTION].to_s.strip.match?(/\AFatura\b/i)
+    end
+
+    # An account row that already moved the balance: paid, and not a projected
+    # invoice.
+    def settled_account_row?(row)
+      !invoice_bill?(row) && row[STATUS].to_s.strip == SETTLED
+    end
+
     def guess_currency(name)
       CURRENCY_HINTS.find { |_, pattern| name.match?(pattern) }&.first || Account::BASE_CURRENCY
     end

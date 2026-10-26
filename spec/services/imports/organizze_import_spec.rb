@@ -64,6 +64,33 @@ RSpec.describe Imports::OrganizzeImport do
     end
   end
 
+  # An export whose period reaches into the future also lists each open
+  # invoice as a row of its own, on the card and on the paying account.
+  describe "a period that reaches into the future" do
+    let(:sheets) do
+      { "NuBank" => [["01.10.2026", "Mercado", "Mercado", -50.0, "Pago"],
+                     ["10.11.2026", "Fatura Novembro 2026", nil, -143.67, "Não pago"],
+                     ["15.11.2026", "Aluguel", "Casa", -900.0, "Não pago"]],
+        "NuBank - Cartão" => [["22.10.2026", "Cameras 7/12", "Compras", -143.67, "Novembro/2026"],
+                              ["10.11.2026", "Fatura Novembro 2026", nil, -143.67, "Novembro/2026"]] }
+    end
+
+    it "skips the invoice rows, so an invoice is not counted twice" do
+      result = import(sheets)
+
+      expect(result.data).to include(skipped_invoice_bills: 2)
+      expect(user.credit_cards.sole.transactions.sum(:amount)).to eq(143.67)
+      expect(user.transactions.pluck(:description)).not_to include("Fatura Novembro 2026")
+    end
+
+    it "keeps an account entry still to be paid pending, out of the balance" do
+      import(sheets)
+
+      expect(user.transactions.find_by(description: "Aluguel").paid).to be(false)
+      expect(Accounts::BalanceCalculator.new(user:).account_balance(user.accounts.sole)).to eq(-50)
+    end
+  end
+
   describe "settlement" do
     it "settles account rows" do
       import({ "NuBank" => [["01.08.2026", "Mercado", "Mercado", -50.0, "Pago"]] })
