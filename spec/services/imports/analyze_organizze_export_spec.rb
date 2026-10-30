@@ -47,11 +47,12 @@ RSpec.describe Imports::AnalyzeOrganizzeExport do
     expect(result[:credit_cards].sole).to include(name: "NuBank - Cartão", rows: 1)
   end
 
-  it "lists the invoices found on a card" do
-    result = analyze({ "NuBank - Cartão" => month_end_card([[2026, 6, invoice_after(2026, 6)],
-                                                            [2026, 7, invoice_after(2026, 7)]]) })
+  it "finds a card's first open invoice in the oldest one the export lists" do
+    rows = [["01.10.2026", "Livro", "Compras", -30.0, "Novembro/2026"],
+            ["04.12.2026", "Fatura Dezembro 2026", nil, -80.0, "Dezembro/2026"],
+            ["04.11.2026", "Fatura Novembro 2026", nil, -30.0, "Novembro/2026"]]
 
-    expect(result[:credit_cards].sole[:invoice_months]).to eq(%w[2026-07 2026-08])
+    expect(analyze({ "NuBank - Cartão" => rows })[:credit_cards].sole[:open_invoice]).to eq("2026-11")
   end
 
   describe "closing day" do
@@ -148,7 +149,7 @@ RSpec.describe Imports::AnalyzeOrganizzeExport do
             ["nao e data", "sem data", "Compras", -10.0, "Julho/2026"]]
 
     expect(analyze({ "NuBank - Cartão" => rows })[:credit_cards].sole)
-      .to include(rows: 2, invoice_months: [], closing_day: 31)
+      .to include(rows: 2, open_invoice: nil, closing_day: 31)
   end
 
   # Two charges on the same day landing on different invoices leaves no room

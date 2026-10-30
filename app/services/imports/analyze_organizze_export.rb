@@ -62,7 +62,7 @@ module Imports
         name: sheet.name,
         rows: rows,
         closing_day: infer_closing_day(spans),
-        invoice_months: spans.keys.sort.map { |m| m.strftime("%Y-%m") }
+        open_invoice: OrganizzeFormat.first_open_invoice(sheet)&.strftime("%Y-%m")
       }
     end
 

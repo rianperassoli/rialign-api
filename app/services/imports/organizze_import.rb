@@ -17,7 +17,8 @@ module Imports
   #    payment status.
   #    Card charges keep that invoice (Organizze lets a charge be pushed to a
   #    later one, so it cannot be re-derived from the date) and are settled
-  #    when it is older than `open_from`.
+  #    when it is older than the card's first open invoice — the oldest one
+  #    the export lists itself (see OrganizzeFormat.first_open_invoice).
   #    Both sides name an invoice after the month it is DUE, so the label in the
   #    file is the same label CreditCardInvoiceQuery uses.
   #  - `Transferências` and `Pagamento de fatura` are money movements, not
@@ -46,8 +47,8 @@ module Imports
   class OrganizzeImport < ApplicationService
     TRANSFER_CATEGORIES = [TransferPairing::CATEGORY, InvoicePaymentLinking::CATEGORY].freeze
 
-    # `open_from` is the first invoice month that is still open; charges from it
-    # onward are imported pending.
+    # `open_from` stands in for the first invoice still open on a card whose
+    # sheet lists none; charges from it onward are imported pending.
     # `replace_existing` wipes the user's accounts, cards, categories and
     # transactions before importing. The export is a full history, so merging it
     # into existing data would duplicate every row; replacing is the only
@@ -100,6 +101,7 @@ module Imports
     def import_sheet(sheet)
       source = source_for(sheet.name)
       series = source.is_a?(CreditCard) ? InstallmentSeries.for_sheet(sheet) : {}
+      @card_open_from = OrganizzeFormat.first_open_invoice(sheet) || @open_from
       1.upto(sheet.row_count - 1) { |i| import_row(sheet.row(i), source, series_id: series[i]) }
       open_account(source, sheet.name) if source.is_a?(Account)
     end
@@ -176,7 +178,7 @@ module Imports
       return { account: source, paid: row[4].to_s.strip == OrganizzeFormat::SETTLED } unless source.is_a?(CreditCard)
 
       { credit_card: source, invoice_month: OrganizzeFormat.parse_invoice_month(row[4]),
-        paid: OrganizzeFormat.settled_invoice?(row[4], open_from: @open_from) }
+        paid: OrganizzeFormat.settled_invoice?(row[4], open_from: @card_open_from) }
     end
 
     # One category per (name, kind): the same name legitimately carries both

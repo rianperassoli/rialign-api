@@ -25,6 +25,17 @@ module Imports
       name.match?(CARD_SUFFIX)
     end
 
+    # The first invoice still unpaid on a card sheet. Organizze lists an
+    # invoice itself ("Fatura Novembro 2026") only while it is open, so it is
+    # the oldest one listed. Nil when none is: every invoice paid, or an export
+    # that stops before them.
+    def first_open_invoice(sheet)
+      1.upto(sheet.row_count - 1).filter_map do |i|
+        row = sheet.row(i)
+        parse_invoice_month(row[STATUS]) if invoice_bill?(row)
+      end.min
+    end
+
     # Whether a card row's invoice is already paid: anything on an invoice older
     # than `open_from` (the first one still open). A row we cannot place stays
     # pending.

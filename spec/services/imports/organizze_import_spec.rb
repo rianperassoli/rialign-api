@@ -108,6 +108,18 @@ RSpec.describe Imports::OrganizzeImport do
       expect(user.transactions.pending.pluck(:description)).to contain_exactly("Atual", "Futura")
     end
 
+    # The export lists an invoice itself only while it is unpaid, so the oldest
+    # one listed wins over open_from — card by card.
+    it "settles everything before the oldest invoice the card's sheet still lists" do
+      import({ "NuBank - Cartão" => [["01.08.2026", "Atual", "Compras", -40.0, "Setembro/2026"],
+                                     ["01.09.2026", "Aberta", "Compras", -50.0, "Outubro/2026"],
+                                     ["04.10.2026", "Fatura Outubro 2026", nil, -50.0, "Outubro/2026"]],
+               "Outro - Cartão" => [["01.08.2026", "Sem lista", "Compras", -20.0, "Setembro/2026"]] })
+
+      expect(user.transactions.paid.pluck(:description)).to eq(["Atual"])
+      expect(user.transactions.pending.pluck(:description)).to contain_exactly("Aberta", "Sem lista")
+    end
+
     it "settles a card row already marked Pago" do
       import({ "NuBank - Cartão" => [["01.08.2026", "Quitada", "Compras", -40.0, "Pago"]] })
       expect(user.transactions.sole).to be_paid
