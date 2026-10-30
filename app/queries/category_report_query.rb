@@ -16,25 +16,31 @@
 #  - `category_ids`: those categories, a parent bringing its subcategories;
 #  - `account_ids` / `credit_card_ids`: entries on those accounts and cards;
 #  - `status`: "paid" or "unpaid" only.
+#
+# Given a `group` (day, week or month), each category also gets its total
+# per bucket — Organizze's lines view and the table under it.
 class CategoryReportQuery
   BASES = %w[purchase invoice installment].freeze
   STATUSES = %w[paid unpaid].freeze
 
   # `period` is a date range: its first and last day.
-  def initialize(user, period:, basis: "purchase", filters: {})
+  def initialize(user, period:, basis: "purchase", filters: {}, group: nil)
     @user = user
     @period = period
     @basis = BASES.include?(basis) ? basis : "purchase"
     @filters = filters
+    @buckets = ReportBuckets.new(period, group) if group.present?
   end
 
   def call
-    {
+    result = {
       period: { from: @period.begin, to: @period.end },
       basis: @basis,
       expense: CategoryBreakdown.new(scoped, kind: "expense").call,
       income: CategoryBreakdown.new(scoped, kind: "income").call
     }
+    result[:series] = series if @buckets
+    result
   end
 
   private
@@ -48,6 +54,31 @@ class CategoryReportQuery
       else counted.purchased_between(@period.begin, @period.end)
       end
     end
+  end
+
+  def series
+    {
+      group: @buckets.group,
+      buckets: @buckets.ranges.map { |from, to| { from:, to: } },
+      expense: series_for("expense"),
+      income: series_for("income")
+    }
+  end
+
+  # One row per top-level category (subcategories added in), its total per
+  # bucket, biggest overall first. A card charge falls on the day its basis
+  # says: the first of its invoice's month when it is placed by invoice.
+  def series_for(kind)
+    day = @basis == "invoice" ? Transaction::REPORT_DATE : :date
+    sums = scoped.where(kind:).where.not(category_id: nil).group(:category_id, day).sum(:amount)
+    categories = Category.unscoped.where(id: sums.keys.map(&:first)).includes(:parent).index_by(&:id)
+    rows = Hash.new { |hash, top| hash[top] = Array.new(@buckets.size, 0) }
+    # The scope only holds days inside the period, so every one has a bucket.
+    sums.each do |(id, date), total|
+      rows[categories[id].parent || categories[id]][@buckets.index_of(date.to_date)] += total
+    end
+    rows.map { |top, values| { category_id: top.id, name: top.name, color: top.color, values: } }
+        .sort_by { |row| -row[:values].sum }
   end
 
   def filtered(scope)

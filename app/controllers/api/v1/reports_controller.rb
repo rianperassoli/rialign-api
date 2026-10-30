@@ -15,10 +15,11 @@ module Api
       end
 
       # GET /api/v1/reports/categories?from=&to=&basis=purchase|invoice|installment
-      #   &category_ids=1,2&account_ids=3&credit_card_ids=4&status=paid|unpaid
+      #   &category_ids=1,2&account_ids=3&credit_card_ids=4&status=paid|unpaid&group=day|week|month
       def categories
         render json: { data: CategoryReportQuery.new(current_user, period:, basis: params[:basis].to_s,
-                                                                   filters: category_filters).call }
+                                                                   filters: category_filters,
+                                                                   group: params[:group].presence).call }
       end
 
       private

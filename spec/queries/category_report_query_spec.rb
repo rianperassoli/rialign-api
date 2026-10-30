@@ -41,6 +41,24 @@ RSpec.describe CategoryReportQuery do
     expect(totals("weekly")).to eq("Compras" => 40)
   end
 
+  it "spreads each category over the buckets of the period when grouped" do
+    series = described_class.new(user, period: october, group: "week", basis: "invoice").call[:series]
+
+    expect(series[:group]).to eq("week")
+    expect(series[:buckets].first).to eq(from: Date.new(2026, 10, 1), to: Date.new(2026, 10, 3))
+    # By invoice, the first parcel falls on the 1st, when October's invoice is due.
+    expect(series[:expense].sole).to include(name: "Compras", values: [100, 0, 0, 0, 0])
+    expect(series[:income].sole[:values]).to eq([0, 5000, 0, 0, 0])
+  end
+
+  it "adds subcategories into their parent along the buckets" do
+    market = create(:category, user:, name: "Mercado", parent: shopping)
+    create(:transaction, user:, account:, category: market, amount: 25, date: Date.new(2026, 10, 20))
+    row = described_class.new(user, period: october, group: "month", basis: "installment").call[:series][:expense].sole
+
+    expect(row).to include(name: "Compras", values: [165])
+  end
+
   describe "filters" do
     let(:market) { create(:category, user:, name: "Mercado", parent: shopping) }
     let(:rent) { create(:category, user:, name: "Aluguel") }

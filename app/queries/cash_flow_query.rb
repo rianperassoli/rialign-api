@@ -18,20 +18,18 @@
 # in and 16.427,06 out (31.927,06 of account expenses less a 15.500,00
 # transfer), leaving 297.987,64 across all eleven accounts.
 class CashFlowQuery
-  GROUPS = %w[day week month total].freeze
-
   # `period` is a date range: its first and last day.
   def initialize(user, period:, group: "day", unpaid: false, account: nil)
     @user = user
     @from = period.begin
     @to = period.end
-    @group = GROUPS.include?(group) ? group : "day"
+    @buckets = ReportBuckets.new(period, group)
     @unpaid = unpaid
     @account = account
   end
 
   def call
-    rows = buckets.map { |start, finish| row(start, finish) }
+    rows = @buckets.ranges.map { |start, finish| row(start, finish) }
     {
       period: { from: @from, to: @to },
       rows: rows,
@@ -77,26 +75,6 @@ class CashFlowQuery
 
   def signed
     Arel.sql("CASE WHEN transactions.kind = 'income' THEN transactions.amount ELSE -transactions.amount END")
-  end
-
-  # [first day, last day] of each bucket, clipped to the period.
-  def buckets
-    return [[@from, @to]] if @group == "total"
-
-    starts = (@from..@to).map { |day| bucket_start(day) }.uniq
-    starts.each_with_index.map do |start, index|
-      finish = starts[index + 1] ? starts[index + 1] - 1 : @to
-      [start, finish]
-    end
-  end
-
-  def bucket_start(day)
-    start = case @group
-            when "week" then day.beginning_of_week(:sunday)
-            when "month" then day.beginning_of_month
-            else day
-            end
-    [start, @from].max
   end
 
   def row(start, finish)

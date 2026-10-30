@@ -24,6 +24,14 @@ RSpec.describe "Api::V1::Reports", type: :request do
       expect(json.dig("data", "income")).to eq([])
     end
 
+    it "adds the per-bucket series only when grouped" do
+      get "/api/v1/reports/categories?group=week", headers: auth_headers(user)
+      expect(json.dig("data", "series", "group")).to eq("week")
+
+      get "/api/v1/reports/categories", headers: auth_headers(user)
+      expect(json["data"]).not_to have_key("series")
+    end
+
     it "reads the filters from comma-separated lists" do
       get "/api/v1/reports/categories?category_ids=#{category.id},x&account_ids=0&status=unpaid",
           headers: auth_headers(user)
