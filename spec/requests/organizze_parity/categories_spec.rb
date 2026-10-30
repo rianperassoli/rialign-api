@@ -32,7 +32,7 @@ RSpec.describe "Organizze parity: categories", type: :request do
   end
 
   it "adds them up the same way in the reports" do
-    rows = api(:get, "/reports?months=1", expect: :ok)["data"]["by_category"]
+    rows = api(:get, "/reports/categories?from=2026-10-01&to=2026-10-31", expect: :ok)["data"]["expense"]
     expect(rows.map { |r| [r["name"], money(r["total"])] }).to eq([["Alimentação", 440], ["Casa", 400]])
   end
 

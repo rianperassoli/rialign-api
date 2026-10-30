@@ -31,8 +31,9 @@ Rails.application.routes.draw do
       get "dashboard",          to: "dashboard#show"
       get "dashboard/balances", to: "dashboard#balances"
 
-      # Historical reports (monthly evolution + category breakdown)
-      get "reports", to: "reports#show"
+      # Reports, as Organizze's: categories and money in x out over a period
+      get "reports/cash_flow", to: "reports#cash_flow"
+      get "reports/categories", to: "reports#categories"
     end
   end
 end

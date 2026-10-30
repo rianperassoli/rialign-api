@@ -1,16 +1,18 @@
-# Expense totals per category for a set of transactions, biggest first, with
-# subcategories added into their parent (one row per top-level category).
-# Each row lists the subcategories behind it, so a chart can drill down;
-# `children` is empty when everything sat on the parent itself.
+# Totals per category for a set of transactions (expenses unless told
+# otherwise), biggest first, with subcategories added into their parent (one
+# row per top-level category). Each row lists the subcategories behind it, so
+# a chart can drill down; `children` is empty when everything sat on the
+# parent itself.
 #
 # Archived categories still count: their transactions are real spending.
 class CategoryBreakdown
-  def initialize(transactions)
+  def initialize(transactions, kind: "expense")
     @transactions = transactions
+    @kind = kind
   end
 
   def call
-    sums = @transactions.expense.where.not(category_id: nil).group(:category_id).sum(:amount)
+    sums = @transactions.where(kind: @kind).where.not(category_id: nil).group(:category_id).sum(:amount)
     categories = Category.unscoped.where(id: sums.keys).includes(:parent).index_by(&:id)
 
     sums.group_by { |id, _| top_level(categories[id]) }

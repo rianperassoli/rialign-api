@@ -1,18 +1,38 @@
 module Api
   module V1
     class ReportsController < ApplicationController
-      DEFAULT_MONTHS = 6
+      # A daily report over more than this would be thousands of rows.
+      MAX_DAYS = 366 * 5
 
-      # GET /api/v1/reports?months=N
-      def show
-        render json: { data: ReportsQuery.new(current_user, months: months).call }
+      # GET /api/v1/reports/cash_flow?from=&to=&group=day|week|month|total&unpaid=1&account_id=
+      # The period defaults to the current month.
+      def cash_flow
+        account = current_user.accounts.find(params.expect(:account_id)) if params[:account_id].present?
+        data = CashFlowQuery.new(current_user, period:, group: params[:group].to_s,
+                                               unpaid: ActiveModel::Type::Boolean.new.cast(params[:unpaid]),
+                                               account:).call
+        render json: { data: }
+      end
+
+      # GET /api/v1/reports/categories?from=&to=&basis=purchase|invoice|installment
+      def categories
+        render json: { data: CategoryReportQuery.new(current_user, period:, basis: params[:basis].to_s).call }
       end
 
       private
 
-      def months
-        requested = params[:months].to_i
-        requested.between?(1, ReportsQuery::MAX_MONTHS) ? requested : DEFAULT_MONTHS
+      # The days between the "YYYY-MM-DD" params, in order and capped at MAX_DAYS.
+      def period
+        from = parse_date(params[:from]) || Date.current.beginning_of_month
+        to = parse_date(params[:to]) || from.end_of_month
+        from, to = to, from if to < from
+        from..[to, from + MAX_DAYS].min
+      end
+
+      def parse_date(value)
+        Date.iso8601(value.to_s)
+      rescue Date::Error
+        nil
       end
     end
   end
