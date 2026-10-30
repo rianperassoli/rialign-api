@@ -11,6 +11,8 @@ module CreditCards
   #
   # The account defaults to the card's `payment_account`, but an explicit
   # `account_id` can override it (e.g. paying from a different account once).
+  # A card with no default yet keeps the first account it is paid from (the
+  # import leaves it unset); the user can change it on the card afterwards.
   #
   # The `month` (YYYY-MM) names the invoice being paid and is required: the
   # charges on that invoice and earlier ones still unpaid are settled, later
@@ -67,6 +69,7 @@ module CreditCards
         settlement.save!
         pending.update_all(paid: true, settled_by_id: settlement.id, updated_at: Time.current) # rubocop:disable Rails/SkipsModelValidations
         build_remaining_balance(remaining, transfer_id:).save! if remaining.positive?
+        @card.update!(payment_account: account) if @card.payment_account.nil?
         settlement
       end
     end

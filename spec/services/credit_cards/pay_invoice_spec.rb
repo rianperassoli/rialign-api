@@ -201,5 +201,13 @@ RSpec.describe CreditCards::PayInvoice, type: :service do
     add_card_expense(200)
     result = described_class.call(user:, credit_card: card, params: { account_id: other.id, month: current_month })
     expect(result.data[:transaction].account_id).to eq(other.id)
+    expect(card.reload.payment_account).to eq(account)
+  end
+
+  it "keeps the account paid from as the default of a card that had none" do
+    card.update!(payment_account: nil)
+    add_card_expense(200)
+    described_class.call(user:, credit_card: card, params: { account_id: account.id, month: current_month })
+    expect(card.reload.payment_account).to eq(account)
   end
 end
