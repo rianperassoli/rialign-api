@@ -131,6 +131,50 @@ RSpec.describe Imports::OrganizzeImport do
     end
   end
 
+  # Organizze lists each parcel as its own row, the parcel at the end of the
+  # description; newest first, as the export does.
+  describe "installments" do
+    let(:parcels) do
+      [["22.10.2026", "Cameras 3/3", "Casa", -100.0, "Novembro/2026"],
+       ["22.09.2026", "Cameras 2/3", "Casa", -100.0, "Outubro/2026"],
+       ["22.08.2026", "Cameras 1/3", "Casa", -100.0, "Setembro/2026"]]
+    end
+
+    it "moves the parcel into the installment fields, one series per purchase" do
+      import({ "NuBank - Cartão" => parcels })
+
+      rows = user.transactions.order(:date).pluck(:description, :installment_number, :installment_total)
+      expect(rows).to eq([["Cameras", 1, 3], ["Cameras", 2, 3], ["Cameras", 3, 3]])
+      expect(user.transactions.distinct.count(:series_id)).to eq(1)
+    end
+
+    it "keeps two purchases of the same thing apart" do
+      again = [["22.09.2026", "Cameras 1/3", "Casa", -100.0, "Outubro/2026"],
+               ["22.10.2026", "Cameras 2/3", "Casa", -100.0, "Novembro/2026"]]
+      import({ "NuBank - Cartão" => parcels + again })
+
+      series = user.transactions.order(:date, :installment_number).group_by(&:series_id).values
+      expect(series.map { |s| s.map(&:installment_number) }).to contain_exactly([1, 2, 3], [1, 2])
+    end
+
+    it "starts a series mid-way when the export period starts after the purchase" do
+      import({ "NuBank - Cartão" => parcels.first(2) })
+      expect(user.transactions.order(:date).pluck(:installment_number)).to eq([2, 3])
+    end
+
+    it "leaves account rows, credits, invoice payments and dates in a description alone" do
+      import({ "NuBank" => [["01.10.2026", "Tv pai 7/12", "Outras receitas", 300.0, "Pago"]],
+               "NuBank - Cartão" => [["01.10.2026", "Estorno 1/2", "Outras receitas", 50.0, "Novembro/2026"],
+                                     ["01.10.2026", "Pagamento 1/2", "Pagamento de fatura", -20.0, "Novembro/2026"],
+                                     ["sem data", "Cameras 1/3", "Casa", -100.0, "Novembro/2026"],
+                                     ["02.10.2026", "Rendimento 08/2026", "Outros", -10.0, "Novembro/2026"]] })
+
+      expect(user.transactions.pluck(:installment_number).uniq).to eq([nil])
+      expect(user.transactions.pluck(:description)).to contain_exactly("Tv pai 7/12", "Estorno 1/2", "Pagamento 1/2",
+                                                                       "Rendimento 08/2026")
+    end
+  end
+
   describe "categories" do
     it "creates one category per name and kind" do
       import({ "NuBank" => [["01.08.2026", "Venda", "Compras", 10.0, "Pago"],

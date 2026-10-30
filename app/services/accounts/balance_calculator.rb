@@ -49,7 +49,8 @@ module Accounts
     end
 
     def consolidated_balance
-      account_balances.sum { |row| row[:account].counted? ? row[:balance] : 0 }
+      # Started at a decimal so a user with no accounts still gets money, not 0.
+      account_balances.sum(BigDecimal(0)) { |row| row[:account].counted? ? row[:balance] : 0 }
     end
 
     def credit_card_invoices

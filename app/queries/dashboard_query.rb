@@ -4,10 +4,10 @@
 #  - totals: income / expense / net for the month — settled account money plus
 #    every card charge on the invoice due this month, paid or not
 #  - forecast: account income/expense still scheduled in the month
-#  - by_category: expense breakdown for charts
+#  - by_category: expense breakdown for charts, by purchase date
 #
-# Card charges are placed by invoice, account entries by date (see
-# Transaction.reported_between / .booked).
+# In the totals, card charges are placed by invoice and account entries by
+# date (see Transaction.reported_between / .booked).
 class DashboardQuery
   def initialize(user, month: Date.current.beginning_of_month)
     @user = user
@@ -46,9 +46,11 @@ class DashboardQuery
 
   # Includes name/color so the UI can chart categories without extra lookups.
   # Counts paid AND pending expenses: the breakdown answers "where is my money
-  # going this month", which includes what is already committed. Subcategories
-  # add into their parent (see CategoryBreakdown).
+  # going this month", which includes what is already committed. Unlike the
+  # totals it goes by purchase date, as Organizze's chart does (see
+  # Transaction.purchased_between). Subcategories add into their parent (see
+  # CategoryBreakdown).
   def expense_by_category
-    CategoryBreakdown.new(scoped).call
+    CategoryBreakdown.new(@user.transactions.non_transfer.in_base_currency.purchased_between(@from, @to)).call
   end
 end

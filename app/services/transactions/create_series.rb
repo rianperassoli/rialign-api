@@ -10,7 +10,9 @@ module Transactions
   #  - Fixed (`months: 12`): the submitted amount repeats as-is every month
   #    (rent, subscriptions...).
   #
-  # Only the first occurrence keeps the submitted `paid` flag; future
+  # Only the first occurrence keeps the submitted `paid` flag — or, when none
+  # is given, the source's default (settled on an account, pending on a card
+  # until its invoice is paid, see Transaction#default_paid_by_source); future
   # occurrences are always pending so balances and forecasts stay honest.
   class CreateSeries < ApplicationService
     MAX_OCCURRENCES = 60
@@ -71,11 +73,18 @@ module Transactions
       @params.merge(
         amount: amount,
         date: first_date >> index, # Date#>> adds months, clamping short months
-        paid: index.zero? && ActiveModel::Type::Boolean.new.cast(@params.fetch(:paid, true)),
+        paid: first_paid(index),
         series_id: series_id,
         installment_number: installment? ? index + 1 : nil,
         installment_total: installment? ? count : nil
       )
+    end
+
+    # nil leaves the first occurrence to the model's default for its source.
+    def first_paid(index)
+      return false unless index.zero?
+
+      @params[:paid].nil? ? nil : ActiveModel::Type::Boolean.new.cast(@params[:paid])
     end
   end
 end

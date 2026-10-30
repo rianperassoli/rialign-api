@@ -3,8 +3,10 @@
 #     (every month is present, zero-filled, so charts get a continuous axis)
 #   - by_category: expense totals per category over the same window
 #
-# Both count what DashboardQuery counts: settled account money by date, and
-# card charges in the month their invoice is due, paid or not.
+# Both count what DashboardQuery counts: the monthly figures take settled
+# account money by date and card charges in the month their invoice is due,
+# paid or not; the categories go by purchase date (see
+# Transaction.purchased_between).
 #
 # Transfers and invoice settlements are excluded, like every other report
 # (see Transaction#non_transfer).
@@ -28,8 +30,12 @@ class ReportsQuery
 
   private
 
+  def counted
+    @user.transactions.non_transfer.in_base_currency.booked
+  end
+
   def scoped
-    @scoped ||= @user.transactions.non_transfer.in_base_currency.booked.reported_between(@from, @to)
+    @scoped ||= counted.reported_between(@from, @to)
   end
 
   def monthly
@@ -45,6 +51,6 @@ class ReportsQuery
 
   # Subcategories add into their parent (see CategoryBreakdown).
   def by_category
-    CategoryBreakdown.new(scoped).call
+    CategoryBreakdown.new(counted.purchased_between(@from, @to)).call
   end
 end

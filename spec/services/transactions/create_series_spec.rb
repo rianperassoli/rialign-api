@@ -44,6 +44,18 @@ RSpec.describe Transactions::CreateSeries do
     it "keeps paid only on the first occurrence" do
       expect(result.data.map(&:paid)).to eq([true, false, false])
     end
+
+    # A card purchase is charged on its invoice, first parcel included; on an
+    # account the first occurrence is settled on the spot.
+    it "leaves the first occurrence to its source's default when paid is not given" do
+      card = create(:credit_card, user:)
+      card_params = base_params.except(:paid, :account_id).merge(credit_card_id: card.id)
+      on_card = described_class.call(user:, params: card_params, installments: 3).data
+      on_account = described_class.call(user:, params: base_params.except(:paid), installments: 3).data
+
+      expect(on_card.map(&:paid)).to eq([false, false, false])
+      expect(on_account.map(&:paid)).to eq([true, false, false])
+    end
   end
 
   describe "fixed series" do

@@ -67,8 +67,22 @@ RSpec.describe DashboardQuery do
       expect(result[:forecast]).to eq(income: 0, expense: 800)
     end
 
-    it "breaks them down by category in the invoice month" do
-      expect(result[:by_category].find { |row| row[:category_id] == food.id }[:total]).to eq(350)
+    # Unlike the totals, the breakdown goes by purchase date, as Organizze's
+    # "Maiores gastos" chart does: the 200 on the account and the 70 bought in May.
+    it "breaks them down by category in the month they were bought" do
+      expect(result[:by_category].find { |row| row[:category_id] == food.id }[:total]).to eq(270)
+    end
+
+    it "counts an installment purchase once, by its first parcel" do
+      series_id = SecureRandom.uuid
+      [[1, Date.new(2026, 5, 3)], [2, Date.new(2026, 6, 3)]].each do |number, date|
+        create(:transaction, user:, category: food, account: nil, credit_card: card, amount: 100, date:,
+                             series_id:, installment_number: number, installment_total: 2)
+      end
+      june = described_class.new(user, month: Date.new(2026, 6, 1)).call
+
+      expect(result[:by_category].find { |row| row[:category_id] == food.id }[:total]).to eq(370)
+      expect(june[:by_category].find { |row| row[:category_id] == food.id }).to be_nil
     end
   end
 

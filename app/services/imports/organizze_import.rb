@@ -31,6 +31,9 @@ module Imports
   #
   #  - A positive row on a card sheet ("Estorno", "Reembolso") is a credit: an
   #    income on the card that lowers the invoice it sits on.
+  #  - A card charge whose description ends in a parcel ("Tv pai 8/12") is an
+  #    installment: the parcel moves into the installment fields and the
+  #    parcels of one purchase share a series (see InstallmentSeries).
   #  - When the period reaches into the future, Organizze also lists each open
   #    invoice itself ("Fatura Novembro 2026", no category): on the card sheet,
   #    where it would double the invoice, and as an unpaid bill on the account
@@ -94,7 +97,8 @@ module Imports
 
     def import_sheet(sheet)
       source = source_for(sheet.name)
-      1.upto(sheet.row_count - 1) { |i| import_row(sheet.row(i), source) }
+      series = source.is_a?(CreditCard) ? InstallmentSeries.for_sheet(sheet) : {}
+      1.upto(sheet.row_count - 1) { |i| import_row(sheet.row(i), source, series_id: series[i]) }
       open_account(source, sheet.name) if source.is_a?(Account)
     end
 
@@ -128,7 +132,7 @@ module Imports
       (entries[name] || entries[name.to_s] || {}).symbolize_keys
     end
 
-    def import_row(row, source)
+    def import_row(row, source, series_id: nil)
       date = OrganizzeFormat.parse_date(row[0])
       amount = row[3].to_f
       return @report[:skipped_no_date] += 1 if date.nil?
@@ -138,7 +142,9 @@ module Imports
       card = source.is_a?(CreditCard)
       @report[:card_credits] += 1 if card && amount.positive?
 
-      transaction = @user.transactions.create!(attributes_for(row, date:, amount:, source:, card:))
+      attributes = attributes_for(row, date:, amount:, source:, card:)
+      attributes.merge!(InstallmentSeries.parcel(row), series_id:) if series_id
+      transaction = @user.transactions.create!(attributes)
       @pairing.add(transaction, category: row[2])
       @report[:imported] += 1
     end

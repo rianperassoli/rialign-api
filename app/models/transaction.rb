@@ -38,6 +38,13 @@ class Transaction < ApplicationRecord
   # on an account on its own date — the way Organizze reports card spending.
   REPORT_DATE = Arel.sql("COALESCE(transactions.invoice_month, transactions.date)")
   scope :reported_between, ->(from, to) { where(REPORT_DATE.between(from..to)) }
+  # The category breakdown follows Organizze's "Maiores gastos" instead: what
+  # was bought in the month, card charges included, whatever invoice they land
+  # on. A card installment counts once, by its first parcel in the month of the
+  # purchase; the later parcels are left out of every month.
+  scope :purchased_between, lambda { |from, to|
+    between(from, to).where("transactions.credit_card_id IS NULL OR COALESCE(transactions.installment_number, 1) = 1")
+  }
   # What a report counts as real: settled account money, and every card charge
   # or credit whether its invoice is paid yet or not — the purchase is already
   # made, so the month's spending no longer depends on when the bill is paid.
