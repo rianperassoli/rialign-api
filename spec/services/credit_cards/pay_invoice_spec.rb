@@ -77,7 +77,7 @@ RSpec.describe CreditCards::PayInvoice, type: :service do
     settlement = described_class.call(user:, credit_card: card, params: { month: current_month }).data[:transaction]
     settlement.destroy
     reopened = card.transactions.sole
-    reopened.update!(paid: true)
+    reopened.update_column(:paid, true) # rubocop:disable Rails/SkipsModelValidations
 
     settlement.destroy
     expect(reopened.reload.paid).to be(true)

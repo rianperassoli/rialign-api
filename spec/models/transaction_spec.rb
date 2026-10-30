@@ -103,6 +103,31 @@ RSpec.describe Transaction, type: :model do
     end
   end
 
+  # Only paying the invoice or cancelling the payment settles a card charge.
+  describe "paid on a card" do
+    let(:user) { create(:user) }
+    let(:card) { create(:credit_card, user:) }
+
+    it "cannot be flipped by hand, either way" do
+      [true, false].each do |paid|
+        charge = create(:transaction, user:, account: nil, credit_card: card, paid: !paid)
+        expect(charge.update(paid:)).to be(false)
+        expect(charge.errors[:paid]).to be_present
+      end
+    end
+
+    it "still follows the source when a charge moves between a card and an account" do
+      charge = create(:transaction, user:, account: nil, credit_card: card, paid: false)
+      expect(charge.update(credit_card: nil, account: create(:account, user:), paid: true)).to be(true)
+      expect(charge.update(account: nil, credit_card: card, paid: false)).to be(true)
+    end
+
+    it "leaves an account entry free to be settled or not" do
+      entry = create(:transaction, user:, paid: false)
+      expect(entry.update(paid: true)).to be(true)
+    end
+  end
+
   describe "invoice month" do
     let(:user) { create(:user) }
     let(:card) { create(:credit_card, user:, closing_day: 31, due_day: 10) }

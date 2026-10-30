@@ -73,6 +73,7 @@ class Transaction < ApplicationRecord
 
   validate :installment_fields_consistent
   validate :invoice_month_not_paid, on: :update
+  validate :card_paid_follows_invoice, on: :update
 
   def income?
     kind == "income"
@@ -150,6 +151,18 @@ class Transaction < ApplicationRecord
     return unless CreditCardInvoiceQuery.paid?(credit_card, invoice_month, except: id)
 
     errors.add(:invoice_month, "is already paid")
+  end
+
+  # On a card, `paid` says whether the invoice was paid, so only paying it or
+  # cancelling the payment changes it (both write it directly, see
+  # CreditCards::PayInvoice and InvoiceSettlement). Flipping it by hand
+  # unsettled a charge its payment had covered, which could then be paid again
+  # — the money leaving the account twice — or settled one nobody paid.
+  # Moving a charge between a card and an account is not this check's concern.
+  def card_paid_follows_invoice
+    return unless paid_changed? && credit_card_id && credit_card_id_was
+
+    errors.add(:paid, "is set by paying the card's invoice")
   end
 
   # Installment legs must carry number + total + the shared series id, and the

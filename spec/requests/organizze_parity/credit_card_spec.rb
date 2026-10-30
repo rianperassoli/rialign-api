@@ -119,6 +119,20 @@ RSpec.describe "Organizze parity: credit card", type: :request do
       expect(balance_of(nubank, month: "2026-11")).to eq(10_000)
     end
 
+    # Organizze has no "paid" on a purchase: the invoice is what gets paid.
+    # Unsettling one charge of a paid invoice let it be paid a second time.
+    it "settles a purchase only through its invoice, never by marking it by hand" do
+      pay_invoice(card_id, "2026-11", account_id: nubank, date: "2026-11-10")
+      market = transactions(search: "Mercado").sole
+
+      api(:patch, "/transactions/#{market["id"]}", { transaction: { paid: false } }, expect: :unprocessable_entity)
+      api(:patch, "/transactions/#{market["id"]}", { transaction: { description: "Mercado do mês", paid: true } },
+          expect: :ok)
+
+      expect(invoice(card_id, "2026-11")["status"]).to eq("paid")
+      expect(balance_of(nubank, month: "2026-11")).to eq(9000)
+    end
+
     it "needs to know which invoice is being paid" do
       api(:post, "/credit_cards/#{card_id}/pay_invoice", { payment: { account_id: nubank } },
           expect: :unprocessable_entity)
