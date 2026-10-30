@@ -140,6 +140,29 @@ RSpec.describe "Organizze parity: credit card", type: :request do
     end
   end
 
+  describe "moving an entry between an account and the card" do
+    let(:wallet) { account("Carteira", initial_balance: 500) }
+
+    it "puts an account expense on the invoice, pending, and gives the money back to the account" do
+      paid_in_cash = entry("Livro", 100, on: wallet, category: shopping, date: "2026-10-12")
+      api(:patch, "/transactions/#{paid_in_cash["id"]}", { transaction: { account_id: nil, credit_card_id: card_id } },
+          expect: :ok)
+
+      expect(money(invoice(card_id, "2026-11")["pending"])).to eq(100)
+      expect(money(card_summary(card_id)["available_limit"])).to eq(2900)
+      expect(balance_of(wallet)).to eq(500)
+    end
+
+    it "takes a purchase off the invoice and out of the account it moves to" do
+      purchase = buy("Livro", 100, "2026-10-12")
+      api(:patch, "/transactions/#{purchase["id"]}",
+          { transaction: { credit_card_id: nil, account_id: wallet, paid: true } }, expect: :ok)
+
+      expect(money(invoice(card_id, "2026-11")["total"])).to eq(0)
+      expect(balance_of(wallet)).to eq(400)
+    end
+  end
+
   describe "moving a purchase to another invoice" do
     it "moves it to the next invoice, but never onto one already paid" do
       early = buy("Antecipada", 100, "2026-10-02")

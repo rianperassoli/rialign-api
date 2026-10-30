@@ -122,6 +122,12 @@ RSpec.describe Transaction, type: :model do
       expect(charge.update(account: nil, credit_card: card, paid: false)).to be(true)
     end
 
+    it "starts pending when an account entry moves onto a card, whatever paid it carried" do
+      entry = create(:transaction, user:, paid: true)
+      entry.update!(account: nil, credit_card: card)
+      expect(entry).not_to be_paid
+    end
+
     it "leaves an account entry free to be settled or not" do
       entry = create(:transaction, user:, paid: false)
       expect(entry.update(paid: true)).to be(true)

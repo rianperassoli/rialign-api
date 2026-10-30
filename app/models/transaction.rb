@@ -69,6 +69,7 @@ class Transaction < ApplicationRecord
             allow_nil: true
 
   before_validation :default_paid_by_source, on: :create
+  before_validation :pending_when_moved_to_card, on: :update
   before_validation :assign_invoice_month
 
   validate :installment_fields_consistent
@@ -125,6 +126,13 @@ class Transaction < ApplicationRecord
     return unless paid.nil?
 
     self.paid = credit_card_id.blank?
+  end
+
+  # An entry moved from an account onto a card is a purchase waiting for its
+  # invoice like any other: kept settled, it sat on the invoice as already
+  # paid with no payment behind it, and used none of the limit.
+  def pending_when_moved_to_card
+    self.paid = false if credit_card_id && credit_card_id_changed? && credit_card_id_was.nil?
   end
 
   # A card charge belongs to one invoice, stored as the first day of the month
