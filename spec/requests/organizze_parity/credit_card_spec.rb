@@ -182,6 +182,74 @@ RSpec.describe "Organizze parity: credit card", type: :request do
     end
   end
 
+  # The November invoice (bought after the 3rd of October) was paid with 1000;
+  # what changes on it afterwards goes on to December's, as in Organizze.
+  describe "changing a purchase on a paid invoice" do
+    let!(:market) { buy("Mercado", 700, "2026-10-12") }
+
+    before do
+      buy("Farmácia", 300, "2026-10-13")
+      pay_invoice(card_id, "2026-11", account_id: nubank, date: "2026-10-20")
+    end
+
+    def december
+      invoice(card_id, "2026-12")
+    end
+
+    it "carries a raise to the next invoice, to be paid with it" do
+      api(:patch, "/transactions/#{market["id"]}", { transaction: { amount: 800 } }, expect: :ok)
+
+      expect(invoice(card_id, "2026-11")["status"]).to eq("paid")
+      expect(money(december["pending"])).to eq(100)
+      expect(money(card_summary(card_id)["available_limit"])).to eq(2900)
+      # The purchase reports its new amount; the adjustment is not spending.
+      expect(money(dashboard("2026-11")["totals"]["expense"])).to eq(1100)
+      expect(money(dashboard("2026-12")["totals"]["expense"])).to eq(0)
+    end
+
+    it "carries a cut, or a deleted purchase, to the next invoice as a credit" do
+      api(:patch, "/transactions/#{market["id"]}", { transaction: { amount: 650 } }, expect: :ok)
+      expect(money(december["total"])).to eq(-50)
+
+      api(:delete, "/transactions/#{market["id"]}", expect: :no_content)
+      expect(money(december["total"])).to eq(-700)
+      expect(money(dashboard("2026-11")["totals"]["expense"])).to eq(300)
+    end
+
+    it "makes a purchase moved to the next invoice pending there, crediting what was paid for it" do
+      api(:patch, "/transactions/#{market["id"]}", { transaction: { invoice_month: "2026-12" } }, expect: :ok)
+
+      expect([money(december["total"]), money(december["pending"])]).to eq([0, 0]) # 700 - 700
+      expect(transactions(search: "Mercado").find { |t| t["id"] == market["id"] }["paid"]).to be(false)
+    end
+
+    it "leaves the adjustment out when the payment is cancelled, the purchase reopening at its new amount" do
+      api(:patch, "/transactions/#{market["id"]}", { transaction: { amount: 800 } }, expect: :ok)
+      payment = invoice(card_id, "2026-11")["payments"].sole
+      api(:delete, "/transactions/#{payment["id"]}", expect: :no_content)
+
+      expect(money(invoice(card_id, "2026-11")["pending"])).to eq(1100)
+      expect(money(december["total"])).to eq(0)
+      expect(balance_of(nubank)).to eq(10_000)
+    end
+
+    it "does the same when a series edit reaches it" do
+      buy("Streaming", 40, "2026-10-14", fixed_months: 3)
+      first = transactions(search: "Streaming").min_by { |t| t["date"] }
+      expect(first["paid"]).to be(false) # bought after paying: November reopens with it
+
+      pay_invoice(card_id, "2026-11", account_id: nubank, date: "2026-10-21")
+      api(:patch, "/transactions/#{first["id"]}?scope=series", { transaction: { amount: 50 } }, expect: :ok)
+
+      expect(money(december["pending"])).to eq(60) # 50 for December's + 10 more for November's
+    end
+
+    it "changes nothing when only the description or category changes" do
+      api(:patch, "/transactions/#{market["id"]}", { transaction: { description: "Mercado do mês" } }, expect: :ok)
+      expect(december["transactions"]).to be_empty
+    end
+  end
+
   # Rialign does not block a purchase above the limit; the available limit
   # goes negative, which is how the overspend shows.
   it "lets a purchase go over the limit and shows the overspend" do

@@ -20,6 +20,7 @@ class Transaction < ApplicationRecord
   include InvoiceSettlement
   include TransactionReferences
   include TransferLeg
+  include InvoiceAdjustment
 
   KINDS = %w[income expense].freeze
 
@@ -71,6 +72,7 @@ class Transaction < ApplicationRecord
   before_validation :default_paid_by_source, on: :create
   before_validation :pending_when_moved_to_card, on: :update
   before_validation :assign_invoice_month
+  before_validation :unsettle_when_moved, on: :update
 
   validate :installment_fields_consistent
   validate :invoice_month_not_paid, on: :update
@@ -155,7 +157,7 @@ class Transaction < ApplicationRecord
   # moves are checked — creating a charge (an import, a backdated purchase)
   # files it wherever it belongs.
   def invoice_month_not_paid
-    return unless credit_card && invoice_month && invoice_month_changed?
+    return unless credit_card && invoice_month && (invoice_month_changed? || credit_card_id_changed?)
     return unless CreditCardInvoiceQuery.paid?(credit_card, invoice_month, except: id)
 
     errors.add(:invoice_month, "is already paid")
@@ -166,9 +168,11 @@ class Transaction < ApplicationRecord
   # CreditCards::PayInvoice and InvoiceSettlement). Flipping it by hand
   # unsettled a charge its payment had covered, which could then be paid again
   # — the money leaving the account twice — or settled one nobody paid.
-  # Moving a charge between a card and an account is not this check's concern.
+  # Moving a charge between a card and an account, or to another invoice or
+  # card (pending there, see InvoiceAdjustment), is not this check's concern.
   def card_paid_follows_invoice
     return unless paid_changed? && credit_card_id && credit_card_id_was
+    return if credit_card_id_changed? || invoice_month_changed?
 
     errors.add(:paid, "is set by paying the card's invoice")
   end
