@@ -69,10 +69,11 @@ RSpec.describe "Api::V1::Transactions series", type: :request do
       expect(user.transactions.find_by(id: series.first.id)).to be_present
     end
 
-    it "archives the whole series with scope=series" do
+    it "archives every occurrence still pending with scope=series, keeping the paid first one" do
       expect do
         delete "/api/v1/transactions/#{series.second.id}?scope=series", headers: auth_headers(user)
-      end.to change(user.transactions, :count).by(-3)
+      end.to change(user.transactions, :count).by(-2)
+      expect(user.transactions.find_by(id: series.first.id)).to be_paid
     end
   end
 end

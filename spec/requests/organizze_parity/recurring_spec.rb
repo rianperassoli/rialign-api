@@ -63,6 +63,22 @@ RSpec.describe "Organizze parity: recurring entries", type: :request do
       delete_occurrence(occurrences("Academia")[5], "future") # April 2027 onwards
       expect(occurrences("Academia").pluck("date").last(2)).to eq(%w[2027-02-05 2027-03-05])
     end
+
+    # The October one was paid: that money has left the account.
+    it "keeps the occurrences already paid when deleting all of them, or this one and the following" do
+      november = occurrences("Academia")[1]
+      edit(november, "one", paid: true)
+
+      delete_occurrence(occurrences("Academia")[0], "future")
+      expect(occurrences("Academia").pluck("date")).to eq(%w[2026-10-05 2026-11-05])
+
+      delete_occurrence(occurrences("Academia")[0], "series")
+      expect(occurrences("Academia").pluck("date")).to eq(%w[2026-10-05 2026-11-05])
+      expect(balance_of(nubank, month: "2026-11")).to eq(4800)
+
+      delete_occurrence(november, "one")
+      expect(occurrences("Academia").pluck("date")).to eq(%w[2026-10-05])
+    end
   end
 
   describe "a fixed entry with no end date" do

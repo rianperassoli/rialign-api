@@ -42,8 +42,11 @@ module Api
 
       # DELETE /api/v1/transactions/:id?scope=one|future|series
       # `future` archives this occurrence and the later ones in its series;
-      # `series` archives every occurrence. A transfer leg takes the whole
-      # transfer with it, so no account is left holding half of it.
+      # `series` archives every occurrence. Either keeps the occurrences already
+      # paid: that money has moved, and deleting them would rewrite the
+      # balance. One alone can still be removed with `one`. A transfer leg
+      # takes the whole transfer with it, so no account is left holding half
+      # of it.
       # Removing this and the following occurrences, or all of them, also ends
       # an open-ended series, so no new month is created after.
       def destroy
@@ -88,7 +91,7 @@ module Api
         return current_user.transactions.where(transfer_id: @transaction.transfer_id) if @transaction.transfer?
         return [@transaction] if @transaction.series_id.blank?
 
-        series = current_user.transactions.in_series(@transaction.series_id)
+        series = current_user.transactions.in_series(@transaction.series_id).pending
         case params[:scope]
         when "series" then series
         when "future" then series.where(date: @transaction.date..)
