@@ -18,7 +18,7 @@ RSpec.describe "Organizze parity: import", type: :request do
   let(:answers) do
     {
       open_from: "2026-11",
-      accounts: { "NuBank" => { current_balance: "3400.00" }, "Carteira USD" => { currency: "USD" } },
+      accounts: { "NuBank" => { current_balance: "3400.00" }, "Carteira USD" => { currency: "USD" } }, # ignored
       credit_cards: { "NuBank - Cartão" => { closing_day: 3, due_day: 10, credit_limit: "5000" } }
     }
   end
@@ -90,12 +90,11 @@ RSpec.describe "Organizze parity: import", type: :request do
                                         "transfers_unpaired" => 0)
   end
 
-  it "pre-filled each account's balance from its paid rows and guessed the dollar account" do
+  it "pre-filled each account's balance from its paid rows" do
     preview = import["preview"]["accounts"].index_by { |a| a["name"] }
 
-    expect(preview["NuBank"]).to include("balance" => "2400.0", "currency" => "BRL") # without opening balance
+    expect(preview["NuBank"]).to include("balance" => "2400.0") # without opening balance
     expect(preview["Carteira"]).to include("balance" => "70.0")
-    expect(preview["Carteira USD"]).to include("currency" => "USD")
   end
 
   it "ends each account on the balance Organizze shows, and adds them into Saldo geral" do
@@ -104,8 +103,8 @@ RSpec.describe "Organizze parity: import", type: :request do
     expect(balance_of(account_id("NuBank"))).to eq(3400) # the balance typed in the wizard
     expect(balance_of(account_id("Carteira"))).to eq(70)
     expect(balance_of(account_id("Carteira USD"))).to eq(50)
-    # Organizze would add US$ 50 as R$ 50; Rialign keeps it out.
-    expect(money(data["consolidated_balance"])).to eq(3470)
+    # Every account in reais, the dollar one too, as Organizze adds them up.
+    expect(money(data["consolidated_balance"])).to eq(3520)
   end
 
   it "shows the open invoice once, with its refund, and the limit the unpaid parcels hold" do
@@ -122,8 +121,9 @@ RSpec.describe "Organizze parity: import", type: :request do
   it "shows the month's income and expense the way Organizze does" do
     october = dashboard("2026-10")
     # Rent + coffee + the October invoice; transfers and invoice payments are
-    # not spending, and the scheduled bill is still to be paid.
-    expect([money(october["totals"]["income"]), money(october["totals"]["expense"])]).to eq([5000, 2330])
+    # not spending, and the scheduled bill is still to be paid. The dollar
+    # account's deposit is income in reais, as Organizze counts it.
+    expect([money(october["totals"]["income"]), money(october["totals"]["expense"])]).to eq([5050, 2330])
     expect(money(october["forecast"]["expense"])).to eq(300)
     expect(money(dashboard("2026-11")["totals"]["expense"])).to eq(650)
   end

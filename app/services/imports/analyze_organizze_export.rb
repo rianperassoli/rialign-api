@@ -33,8 +33,7 @@ module Imports
         if OrganizzeFormat.card_sheet?(sheet.name)
           cards << card_preview(sheet, rows)
         else
-          accounts << { name: sheet.name, rows: rows, balance: rows_balance(sheet).to_s("F"),
-                        currency: OrganizzeFormat.guess_currency(sheet.name) }
+          accounts << { name: sheet.name, rows: rows, balance: rows_balance(sheet).to_s("F") }
         end
       end
 

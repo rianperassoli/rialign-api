@@ -111,8 +111,10 @@ module Imports
                                      due_day: 10 }.merge(defaults_for(:credit_cards, name)))
       else
         @report[:accounts] += 1
-        @user.accounts.create!({ name: name, initial_balance: 0 }
-                                 .merge(defaults_for(:accounts, name).except(:current_balance)))
+        # In reais, whatever the name says: Organizze has no currencies and
+        # adds every account into Saldo geral as it is.
+        @user.accounts.create!(name: name, initial_balance: 0,
+                               **defaults_for(:accounts, name).slice(:exclude_from_total))
       end
     end
 

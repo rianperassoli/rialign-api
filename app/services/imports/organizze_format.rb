@@ -11,10 +11,6 @@ module Imports
     MONTHS = %w[janeiro fevereiro março abril maio junho
                 julho agosto setembro outubro novembro dezembro].freeze
     SETTLED = "Pago".freeze
-    # Organizze has no currency per account, so people name them after it
-    # ("Carteira USD", "Nubank (USD)"). Only a guess: the import asks.
-    CURRENCY_HINTS = { "USD" => /\bUSD\b|US\$|d[oó]lar/i, "EUR" => /\bEUR\b|euro/i,
-                       "GBP" => /\bGBP\b|libra/i }.freeze
 
     DATE = 0
     DESCRIPTION = 1
@@ -49,10 +45,6 @@ module Imports
     # invoice.
     def settled_account_row?(row)
       !invoice_bill?(row) && row[STATUS].to_s.strip == SETTLED
-    end
-
-    def guess_currency(name)
-      CURRENCY_HINTS.find { |_, pattern| name.match?(pattern) }&.first || Account::BASE_CURRENCY
     end
 
     def parse_date(value)

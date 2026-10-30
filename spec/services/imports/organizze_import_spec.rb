@@ -388,9 +388,9 @@ RSpec.describe Imports::OrganizzeImport do
       expect(balance).to eq(2650.55)
     end
 
-    it "keeps the currency the user confirmed" do
+    it "books every account in reais, as Organizze has no currencies" do
       import(rows, defaults: { accounts: { "NuBank" => { "currency" => "USD" } } })
-      expect(user.accounts.sole).to have_attributes(currency: "USD", counted?: false)
+      expect(user.accounts.sole).to have_attributes(currency: "BRL", counted?: true)
     end
 
     it "starts at zero when no balance is given" do
