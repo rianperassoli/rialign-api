@@ -56,6 +56,11 @@ RSpec.describe "Organizze parity: categories", type: :request do
     expect(api(:get, "/categories")["data"].pluck("name")).to eq(["Casa"])
   end
 
+  it "refuses turning a category in use into the other kind" do
+    api(:patch, "/categories/#{home}", { category: { kind: "income" } }, expect: :unprocessable_entity)
+    expect(dashboard("2026-10")["by_category"].pluck("name")).to include("Casa")
+  end
+
   it "refuses an income category on an expense" do
     salary = category("Salário", kind: "income")
     api(:post, "/transactions", { transaction: { description: "X", kind: "expense", amount: 10, date: "2026-10-06",

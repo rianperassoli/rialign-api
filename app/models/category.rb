@@ -22,6 +22,7 @@ class Category < ApplicationRecord
   validates :name, presence: true
   validates :kind, presence: true, inclusion: { in: KINDS }
   validate :parent_usable
+  validate :kind_kept_once_used, on: :update
 
   # Archiving a category takes its subcategories with it, as in Organizze.
   def archive!
@@ -53,6 +54,16 @@ class Category < ApplicationRecord
     return "must be a top-level category" if parent.parent_id.present?
 
     "cannot have subcategories of its own" if subcategories.exists?
+  end
+
+  # Category#kind must match every transaction on it and every subcategory
+  # under it, archived ones included; changing it would leave expenses filed
+  # under an income category. A new category of the other kind is the way.
+  def kind_kept_once_used
+    return unless kind_changed?
+    return unless Transaction.unscoped.exists?(category_id: id) || Category.unscoped.exists?(parent_id: id)
+
+    errors.add(:kind, "cannot change once the category is in use")
   end
 
   def compatibility_error
