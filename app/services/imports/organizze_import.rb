@@ -24,7 +24,8 @@ module Imports
   #    spending: each row becomes a transfer leg (a `transfer_id`, no category),
   #    so it moves the balance but stays out of income/expense reports. The two
   #    sides of a transfer are paired afterwards (see TransferPairing); an
-  #    invoice payment's card side is not in the export, so it stays one leg.
+  #    invoice payment has no card side in the export, so it stays one leg,
+  #    linked to the invoice it paid (see InvoicePaymentLinking).
   #  - A category name can appear with both signs (`Compras` has 757 expenses and
   #    1 income), and Category#kind must match the transaction, so each name maps
   #    to one category PER KIND.
@@ -43,7 +44,7 @@ module Imports
   # Rows that cannot be represented are skipped and counted in the report rather
   # than aborting the run: a zero amount (Transaction requires > 0).
   class OrganizzeImport < ApplicationService
-    TRANSFER_CATEGORIES = [TransferPairing::CATEGORY, "Pagamento de fatura"].freeze
+    TRANSFER_CATEGORIES = [TransferPairing::CATEGORY, InvoicePaymentLinking::CATEGORY].freeze
 
     # `open_from` is the first invoice month that is still open; charges from it
     # onward are imported pending.
@@ -65,7 +66,8 @@ module Imports
       @replace_existing = replace_existing
       @report = Hash.new(0)
       @categories = {}
-      @pairing = TransferPairing.new
+      # Each joins up rows it is handed as they are imported, once all are in.
+      @linkers = [TransferPairing.new, InvoicePaymentLinking.new]
     end
 
     def call
@@ -78,7 +80,7 @@ module Imports
       ApplicationRecord.transaction do
         wipe_existing if @replace_existing
         book.worksheets.each { |sheet| import_sheet(sheet) }
-        @report.merge!(@pairing.call)
+        @linkers.each { |linker| @report.merge!(linker.call) }
       end
       success(@report)
     rescue ActiveRecord::RecordInvalid => e
@@ -142,14 +144,12 @@ module Imports
       card = source.is_a?(CreditCard)
       @report[:card_credits] += 1 if card && amount.positive?
 
-      attributes = attributes_for(row, date:, amount:, source:, card:)
-      attributes.merge!(InstallmentSeries.parcel(row), series_id:) if series_id
-      transaction = @user.transactions.create!(attributes)
-      @pairing.add(transaction, category: row[2])
+      transaction = @user.transactions.create!(attributes_for(row, date:, amount:, source:, series_id:))
+      @linkers.each { |linker| linker.add(transaction, category: row[2]) }
       @report[:imported] += 1
     end
 
-    def attributes_for(row, date:, amount:, source:, card:)
+    def attributes_for(row, date:, amount:, source:, series_id:)
       kind = amount.negative? ? "expense" : "income"
       base = {
         description: row[1].to_s.strip.presence || "(sem descrição)",
@@ -157,8 +157,9 @@ module Imports
         amount: amount.abs,
         date: date,
         notes: row[6].presence,
-        **source_attributes(row, source:, card:)
+        **source_attributes(row, source:)
       }
+      base.merge!(InstallmentSeries.parcel(row), series_id:) if series_id
       if TRANSFER_CATEGORIES.include?(row[2].to_s.strip)
         base.merge(transfer_id: SecureRandom.uuid)
       else
@@ -169,8 +170,8 @@ module Imports
     # A card charge keeps the invoice the file names (nil falls back to the one
     # its date gives) and is settled by it; an account row is settled unless
     # the file says it is still to be paid.
-    def source_attributes(row, source:, card:)
-      return { account: source, paid: row[4].to_s.strip == OrganizzeFormat::SETTLED } unless card
+    def source_attributes(row, source:)
+      return { account: source, paid: row[4].to_s.strip == OrganizzeFormat::SETTLED } unless source.is_a?(CreditCard)
 
       { credit_card: source, invoice_month: OrganizzeFormat.parse_invoice_month(row[4]),
         paid: OrganizzeFormat.settled_invoice?(row[4], open_from: @open_from) }

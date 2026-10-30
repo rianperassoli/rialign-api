@@ -91,6 +91,22 @@ RSpec.describe "Api::V1::Transfers", type: :request do
       )
       expect(json.dig("meta", "pagination", "count")).to eq(2)
     end
+
+    # An imported invoice paid in two goes: two account legs sharing the
+    # transfer_id, only one of them pointed at by the charges.
+    it "skips every leg of an invoice payment" do
+      card = create(:credit_card, user:)
+      transfer_id = SecureRandom.uuid
+      first, = [60, 40].map do |amount|
+        user.transactions.create!(account: from, kind: "expense", amount:, date: Date.current, paid: true,
+                                  description: "Pagamento de fatura", transfer_id:)
+      end
+      create(:transaction, user:, credit_card: card, account: nil, amount: 100, paid: true, settled_by: first)
+
+      get "/api/v1/transfers", headers: auth_headers(user)
+
+      expect(json["data"]).to be_empty
+    end
   end
 
   describe "DELETE /api/v1/transfers/:id" do

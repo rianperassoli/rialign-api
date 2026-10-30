@@ -52,8 +52,11 @@ module Api
       private
 
       def listed_legs
-        payments = current_user.transactions.where.not(settled_by_id: nil).select(:settled_by_id)
-        legs = current_user.transactions.transfers.where(credit_card_id: nil).where.not(id: payments)
+        # By transfer_id: an invoice paid in two goes is one payment of two legs.
+        payments = current_user.transactions.where(
+          id: current_user.transactions.where.not(settled_by_id: nil).select(:settled_by_id)
+        ).select(:transfer_id)
+        legs = current_user.transactions.transfers.where(credit_card_id: nil).where.not(transfer_id: payments)
         outgoing = legs.where(kind: "expense")
         outgoing.or(legs.where.not(transfer_id: outgoing.select(:transfer_id)))
       end

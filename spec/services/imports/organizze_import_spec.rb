@@ -233,6 +233,66 @@ RSpec.describe Imports::OrganizzeImport do
     end
   end
 
+  # The export names neither the card nor the invoice a payment paid; it is
+  # matched by amount near the due date (the 10th, the default due day).
+  describe "invoice payments" do
+    let(:charges) do
+      [["20.06.2026", "Mercado", "Mercado", -300.0, "Julho/2026"],
+       ["20.07.2026", "Livro", "Compras", -500.0, "Agosto/2026"]]
+    end
+
+    def payment(date, amount, sheet: "NuBank")
+      user.transactions.joins(:account).find_by!(accounts: { name: sheet }, date: Date.parse(date), amount:)
+    end
+
+    def invoice(month)
+      CreditCardInvoiceQuery.new(user.credit_cards.sole, month:).call
+    end
+
+    it "links a payment to the invoice it matches, as a payment made in Rialign" do
+      result = import({ "NuBank - Cartão" => charges,
+                        "NuBank" => [["08.07.2026", "Pagamento de fatura", "Pagamento de fatura", -300.0, "Pago"],
+                                     ["10.08.2026", "Pagamento de fatura", "Pagamento de fatura", -500.0, "Pago"]] })
+
+      expect(result.data).to include(invoice_payments_linked: 2, invoice_payments_unlinked: 0)
+      expect(invoice(Date.new(2026, 7, 1))[:payments]).to eq([payment("08.07.2026", 300)])
+      expect(invoice(Date.new(2026, 8, 1))[:payments]).to eq([payment("10.08.2026", 500)])
+    end
+
+    it "makes one payment of an invoice paid in two goes" do
+      import({ "NuBank - Cartão" => charges.first(1),
+               "NuBank" => [["05.07.2026", "Antecipado", "Pagamento de fatura", -100.0, "Pago"],
+                            ["09.07.2026", "Resto", "Pagamento de fatura", -200.0, "Pago"]] })
+
+      legs = [payment("05.07.2026", 100), payment("09.07.2026", 200)]
+      expect(invoice(Date.new(2026, 7, 1))[:payments]).to eq(legs)
+      expect(legs.map(&:transfer_id).uniq.size).to eq(1)
+    end
+
+    # In Organizze a charge can sit on an invoice other than the one it was
+    # paid with, so neither payment matches its invoice to the cent.
+    it "falls back to the invoice due closest when no amount matches" do
+      result = import({ "NuBank - Cartão" => charges,
+                        "NuBank" => [["08.07.2026", "Pagamento de fatura", "Pagamento de fatura", -250.0, "Pago"],
+                                     ["10.08.2026", "Pagamento de fatura", "Pagamento de fatura", -550.0, "Pago"]] })
+
+      expect(result.data).to include(invoice_payments_linked: 2)
+      expect(invoice(Date.new(2026, 7, 1))[:payments]).to eq([payment("08.07.2026", 250)])
+      expect(invoice(Date.new(2026, 8, 1))[:payments]).to eq([payment("10.08.2026", 550)])
+    end
+
+    it "leaves alone a payment with no invoice in reach, and an invoice still open" do
+      result = import({ "NuBank - Cartão" => [["20.08.2026", "Livro", "Compras", -80.0, "Setembro/2026"],
+                                              ["20.08.2026", "Ajuste", "Pagamento de fatura", -5.0, "Setembro/2026"]],
+                        "NuBank" => [["01.03.2026", "Antiga", "Pagamento de fatura", -50.0, "Pago"],
+                                     ["10.09.2026", "Adiantado", "Pagamento de fatura", -80.0, "Pago"],
+                                     ["11.09.2026", "Devolvido", "Pagamento de fatura", 80.0, "Pago"]] })
+
+      expect(result.data).to include(invoice_payments_linked: 0, invoice_payments_unlinked: 2)
+      expect(user.transactions.where.not(settled_by_id: nil)).to be_empty
+    end
+  end
+
   describe "dates" do
     it "skips a row whose date cannot be read" do
       result = import({ "NuBank" => [["not a date", "Mercado", "Mercado", -10.0, "Pago"]] })

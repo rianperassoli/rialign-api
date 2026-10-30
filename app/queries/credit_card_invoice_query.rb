@@ -41,10 +41,7 @@ class CreditCardInvoiceQuery
       previous_paid: self.class.paid?(@card, @month << 1),
       next_paid: self.class.paid?(@card, @month >> 1),
       transactions: transactions,
-      # The payments that settled charges on this invoice; removing one
-      # reopens what it settled. Imported charges carry no link, so an
-      # imported invoice can read paid with no payment listed.
-      payments: @card.user.transactions.where(id: transactions.select(:settled_by_id)).order(date: :asc, id: :asc)
+      payments: payments(transactions)
     }
   end
 
@@ -67,6 +64,17 @@ class CreditCardInvoiceQuery
   end
 
   private
+
+  # The payments that settled charges on this invoice; removing one reopens
+  # what it settled. Every account leg of the payment is listed: an imported
+  # invoice paid in two goes is one payment of two legs (see
+  # Imports::InvoicePaymentLinking). An imported invoice with no payment in the
+  # export reads paid with none listed.
+  def payments(transactions)
+    user_transactions = @card.user.transactions
+    settlements = user_transactions.where(id: transactions.select(:settled_by_id)).select(:transfer_id)
+    user_transactions.where(transfer_id: settlements, credit_card_id: nil).order(date: :asc, id: :asc)
+  end
 
   # The cycle billed in @month closes in @month when the card is due after it
   # closes, and in the month before otherwise.
