@@ -23,6 +23,12 @@ RSpec.describe "Api::V1::Reports", type: :request do
       expect(json.dig("data", "expense").first["name"]).to eq(category.name)
       expect(json.dig("data", "income")).to eq([])
     end
+
+    it "reads the filters from comma-separated lists" do
+      get "/api/v1/reports/categories?category_ids=#{category.id},x&account_ids=0&status=unpaid",
+          headers: auth_headers(user)
+      expect(json.dig("data", "expense")).to eq([])
+    end
   end
 
   describe "GET /api/v1/reports/cash_flow" do

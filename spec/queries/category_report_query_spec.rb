@@ -40,4 +40,35 @@ RSpec.describe CategoryReportQuery do
     expect(totals("installment")).to eq("Compras" => 140) # the second parcel and the October purchase
     expect(totals("weekly")).to eq("Compras" => 40)
   end
+
+  describe "filters" do
+    let(:market) { create(:category, user:, name: "Mercado", parent: shopping) }
+    let(:rent) { create(:category, user:, name: "Aluguel") }
+
+    def filtered(**filters)
+      described_class.new(user, period: october, filters:).call[:expense].to_h { |row| [row[:name], row[:total].to_f] }
+    end
+
+    before do
+      create(:transaction, user:, account:, category: market, amount: 25, date: Date.new(2026, 10, 3))
+      create(:transaction, user:, account:, category: rent, amount: 900, date: Date.new(2026, 10, 6), paid: false)
+    end
+
+    it "counts settled and pending entries alike unless a status is picked" do
+      expect(filtered).to eq("Aluguel" => 900, "Compras" => 65)
+      expect(filtered(status: "paid")).to eq("Compras" => 25)
+      expect(filtered(status: "unpaid")).to eq("Aluguel" => 900, "Compras" => 40)
+      expect(filtered(status: "maybe")).to eq("Aluguel" => 900, "Compras" => 65)
+    end
+
+    it "keeps the categories picked, a parent with its subcategories" do
+      expect(filtered(category_ids: [shopping.id])).to eq("Compras" => 65)
+      expect(filtered(category_ids: [market.id, rent.id])).to eq("Aluguel" => 900, "Compras" => 25)
+    end
+
+    it "keeps the entries on the accounts and cards picked" do
+      expect(filtered(account_ids: [account.id])).to eq("Aluguel" => 900, "Compras" => 25)
+      expect(filtered(credit_card_ids: [card.id])).to eq("Compras" => 40)
+    end
+  end
 end

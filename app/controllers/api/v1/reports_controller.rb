@@ -15,8 +15,10 @@ module Api
       end
 
       # GET /api/v1/reports/categories?from=&to=&basis=purchase|invoice|installment
+      #   &category_ids=1,2&account_ids=3&credit_card_ids=4&status=paid|unpaid
       def categories
-        render json: { data: CategoryReportQuery.new(current_user, period:, basis: params[:basis].to_s).call }
+        render json: { data: CategoryReportQuery.new(current_user, period:, basis: params[:basis].to_s,
+                                                                   filters: category_filters).call }
       end
 
       private
@@ -27,6 +29,14 @@ module Api
         to = parse_date(params[:to]) || from.end_of_month
         from, to = to, from if to < from
         from..[to, from + MAX_DAYS].min
+      end
+
+      # Lists arrive comma-separated ("1,2,3"); anything that is not an id drops out.
+      def category_filters
+        lists = %i[category_ids account_ids credit_card_ids].index_with do |key|
+          params[key].to_s.split(",").map(&:to_i).select(&:positive?)
+        end
+        lists.merge(status: params[:status].to_s)
       end
 
       def parse_date(value)
