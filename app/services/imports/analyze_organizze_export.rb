@@ -43,15 +43,17 @@ module Imports
 
     private
 
-    # What the account would hold from its rows alone — the settled ones, as
-    # the import counts them (an entry still to be paid or a projected invoice
-    # does not move it yet). The export carries no opening balance, so this is
-    # what the user corrects to the balance Organizze shows (see
-    # OrganizzeImport's `current_balance`).
+    # What the account would hold today from its rows alone — the settled ones,
+    # as the import counts them (an entry still to be paid, a projected invoice
+    # or one dated ahead does not move it yet; see Accounts::BalanceCalculator).
+    # The export carries no opening balance, so this is what the user corrects
+    # to the balance Organizze shows (see OrganizzeImport's `current_balance`).
     def rows_balance(sheet)
       1.upto(sheet.row_count - 1).sum(BigDecimal(0)) do |i|
         row = sheet.row(i)
-        OrganizzeFormat.settled_account_row?(row) ? BigDecimal(row[OrganizzeFormat::AMOUNT].to_f.to_s) : 0
+        counted = OrganizzeFormat.settled_account_row?(row) &&
+                  OrganizzeFormat.parse_date(row[OrganizzeFormat::DATE])&.<=(Date.current)
+        counted ? BigDecimal(row[OrganizzeFormat::AMOUNT].to_f.to_s) : 0
       end
     end
 

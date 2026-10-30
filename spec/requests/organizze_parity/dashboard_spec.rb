@@ -34,6 +34,17 @@ RSpec.describe "Organizze parity: dashboard", type: :request do
     pay_invoice(card_id, "2026-10", account_id: nubank, date: "2026-10-10")
   end
 
+  # Organizze counts a paid entry or transfer dated ahead only from its day.
+  it "moves the balance with an entry or transfer marked paid but dated ahead only once its day comes" do
+    entry("Seguro", 200, on: nubank, category: home, date: "2026-10-25", paid: true)
+    transfer(nubank, wallet, 50, date: "2026-10-25")
+    expect([balance_of(nubank), balance_of(wallet)]).to eq([3600, 300])
+    expect(money(dashboard("2026-10")["consolidated_balance"])).to eq(3900)
+
+    travel_to Date.new(2026, 10, 25)
+    expect([balance_of(nubank), balance_of(wallet)]).to eq([3350, 350])
+  end
+
   it "shows each account's balance from what was actually paid" do
     # 1000 + 5000 salary - 1500 rent - 100 transfer - 800 October invoice;
     # the scheduled 300 has not left the account yet.

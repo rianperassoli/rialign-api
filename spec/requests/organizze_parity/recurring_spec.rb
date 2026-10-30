@@ -74,7 +74,8 @@ RSpec.describe "Organizze parity: recurring entries", type: :request do
 
       delete_occurrence(occurrences("Academia")[0], "series")
       expect(occurrences("Academia").pluck("date")).to eq(%w[2026-10-05 2026-11-05])
-      expect(balance_of(nubank, month: "2026-11")).to eq(4800)
+      travel_to Date.new(2026, 11, 5) # the paid November one counts from its day
+      expect(balance_of(nubank)).to eq(4800)
 
       delete_occurrence(november, "one")
       expect(occurrences("Academia").pluck("date")).to eq(%w[2026-10-05])

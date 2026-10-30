@@ -53,8 +53,9 @@ module OrganizzeScenario
     api(:get, "/dashboard?month=#{month}", expect: :ok)["data"]
   end
 
-  def balance_of(account_id, month: Date.current.strftime("%Y-%m"))
-    money(dashboard(month)["accounts"].find { |a| a["id"] == account_id }["current_balance"])
+  # Balances are as of today, whatever month the dashboard shows.
+  def balance_of(account_id)
+    money(dashboard(Date.current.strftime("%Y-%m"))["accounts"].find { |a| a["id"] == account_id }["current_balance"])
   end
 
   def card_summary(card_id)

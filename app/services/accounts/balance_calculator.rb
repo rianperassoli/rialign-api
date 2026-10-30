@@ -3,8 +3,11 @@ module Accounts
   # live in one place and are trivially unit-testable.
   #
   # Conventions:
-  #  - Account balance counts only PAID transactions booked to that account:
+  #  - Account balance counts only PAID transactions booked to that account,
+  #    up to today:
   #      initial_balance + sum(income) - sum(expense)
+  #    An entry or transfer marked paid but dated ahead moves the balance only
+  #    once its day comes, as in Organizze.
   #  - Consolidated balance = sum of every (kept) account balance, skipping the
   #    ones flagged `exclude_from_total` and the ones in another currency (see
   #    Account#counted?). Those still report their own balance; they just do
@@ -33,7 +36,8 @@ module Accounts
     # Balances of several accounts in one grouped query, keyed by account id.
     def balances_for(accounts)
       # Expenses minus income per account: what left it (Transaction.charged_total).
-      spent = Transaction.paid.where(account_id: accounts.map(&:id)).group(:account_id).charged_total
+      spent = Transaction.paid.where(account_id: accounts.map(&:id), date: ..Date.current)
+                         .group(:account_id).charged_total
       accounts.to_h { |account| [account.id, account.initial_balance - spent.fetch(account.id, 0)] }
     end
 

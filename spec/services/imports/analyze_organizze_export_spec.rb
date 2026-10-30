@@ -107,6 +107,17 @@ RSpec.describe Imports::AnalyzeOrganizzeExport do
     expect(result[:accounts].sole[:balance]).to eq("-9.75")
   end
 
+  # The balance is today's: a row marked paid but dated ahead moves it only
+  # from its day (see Accounts::BalanceCalculator).
+  it "leaves rows dated ahead, or with no readable date, out of today's balance" do
+    travel_to Date.new(2026, 10, 15)
+    result = analyze({ "NuBank" => [["15.10.2026", "Mercado", "Mercado", -50.0, "Pago"],
+                                    ["16.10.2026", "Aluguel", "Casa", -900.0, "Pago"],
+                                    ["sem data", "Pix", "Outros", -7.0, "Pago"]] })
+
+    expect(result[:accounts].sole[:balance]).to eq("-50.0")
+  end
+
   it "guesses the currency an account is named after" do
     names = ["Carteira USD", "NuBank - GLOBAL USD", "Nubank (USD)", "Conta Euro", "Libra UK", "Usdinheiro"]
     accounts = analyze(names.index_with { [] })[:accounts]

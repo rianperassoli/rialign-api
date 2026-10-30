@@ -90,7 +90,8 @@ RSpec.describe "Organizze parity: credit card", type: :request do
       expect(money(payment["amount"])).to eq(1000)
       november = invoice(card_id, "2026-11")
       expect([november["status"], money(november["pending"])]).to eq(["paid", 0])
-      expect(balance_of(nubank, month: "2026-11")).to eq(9000)
+      travel_to Date.new(2026, 11, 10) # the payment's day: dated ahead, it moves the balance from then
+      expect(balance_of(nubank)).to eq(9000)
       expect(money(card_summary(card_id)["available_limit"])).to eq(3000)
       expect(money(dashboard("2026-11")["totals"]["expense"])).to eq(1000)
     end
@@ -102,7 +103,8 @@ RSpec.describe "Organizze parity: credit card", type: :request do
       expect(invoice(card_id, "2026-11")["status"]).to eq("paid")
       december = invoice(card_id, "2026-12")
       expect(money(december["total"])).to eq(650) # 600 left over + 50 bought in November
-      expect(balance_of(nubank, month: "2026-11")).to eq(9600)
+      travel_to Date.new(2026, 11, 10) # the payment's day: dated ahead, it moves the balance from then
+      expect(balance_of(nubank)).to eq(9600)
       expect(money(card_summary(card_id)["available_limit"])).to eq(2350)
       # The 600 carried over was already counted as November spending.
       expect(money(dashboard("2026-12")["totals"]["expense"])).to eq(50)
@@ -116,7 +118,8 @@ RSpec.describe "Organizze parity: credit card", type: :request do
       # Still before its closing day (03/11), so it is open again.
       expect([november["status"], money(november["pending"]), november["payments"]]).to eq(["open", 1000, []])
       expect(money(invoice(card_id, "2026-12")["total"])).to eq(0)
-      expect(balance_of(nubank, month: "2026-11")).to eq(10_000)
+      travel_to Date.new(2026, 11, 10) # the payment's day: dated ahead, it moves the balance from then
+      expect(balance_of(nubank)).to eq(10_000)
     end
 
     # Organizze has no "paid" on a purchase: the invoice is what gets paid.
@@ -130,7 +133,8 @@ RSpec.describe "Organizze parity: credit card", type: :request do
           expect: :ok)
 
       expect(invoice(card_id, "2026-11")["status"]).to eq("paid")
-      expect(balance_of(nubank, month: "2026-11")).to eq(9000)
+      travel_to Date.new(2026, 11, 10) # the payment's day: dated ahead, it moves the balance from then
+      expect(balance_of(nubank)).to eq(9000)
     end
 
     it "needs to know which invoice is being paid" do
