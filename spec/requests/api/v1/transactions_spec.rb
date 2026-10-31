@@ -47,6 +47,20 @@ RSpec.describe "Api::V1::Transactions", type: :request do
     end
   end
 
+  describe "GET /api/v1/transactions/export" do
+    it "sends the filtered list as a CSV file" do
+      create(:transaction, user:, account:, category:, description: "Mercado", amount: 50)
+      create(:transaction, user:, account:, category:, description: "Aluguel", amount: 900)
+
+      get "/api/v1/transactions/export?search=Merc", headers: auth_headers(user)
+
+      expect(response).to have_http_status(:ok)
+      expect(response.media_type).to eq("text/csv")
+      expect(response.headers["Content-Disposition"]).to include("lancamentos-")
+      expect(response.body.lines.size).to eq(2)
+    end
+  end
+
   describe "GET /api/v1/transactions" do
     before { create_list(:transaction, 3, user:, account:, category:) }
 

@@ -1,10 +1,6 @@
 module Api
   module V1
     class TransactionsController < ApplicationController
-      # Filters an unpaid invoice can never match: it is an expense, still
-      # to be paid, with no category and on no single card.
-      NOT_INVOICES = { type: %w[income transfer fixed installments], paid: %w[true], kind: %w[income] }.freeze
-
       before_action :set_transaction, only: %i[show update destroy]
 
       # GET /api/v1/transactions  (filterable + paginated)
@@ -12,11 +8,18 @@ module Api
         transactions = current_user.transactions.includes(:account, category: :parent)
         scope = TransactionsQuery.new(transactions, filter_params).call
         render_collection(scope, serializer: TransactionSerializer,
-                                 meta: { totals: totals(scope), open_invoices: open_invoices }.compact)
+                                 meta: TransactionListMeta.new(current_user, scope, filter_params).call)
       end
 
       def show
         render_resource(@transaction, serializer: TransactionSerializer)
+      end
+
+      # GET /api/v1/transactions/export — same filters as the list.
+      def export
+        scope = TransactionsQuery.new(current_user.transactions, filter_params).call
+        send_data Transactions::ExportCsv.new(scope).call,
+                  type: "text/csv; charset=utf-8", filename: "lancamentos-#{Date.current.iso8601}.csv"
       end
 
       # POST /api/v1/transactions
@@ -113,37 +116,6 @@ module Api
           transaction: %i[description kind amount date paid notes
                           category_id account_id credit_card_id invoice_month]
         )
-      end
-
-      # What the whole filtered list adds up to, every page of it: Organizze's
-      # "Total com o termo …" footer, and the list total. Transfers stay out,
-      # invoice payments included, as Organizze adds it up: they only move
-      # money, and a payment would count the card purchases a second time
-      # (October 2026: 37,32 with them out).
-      def totals(scope)
-        sums = scope.reorder(nil).non_transfer.group(:kind).sum(:amount)
-        income = sums.fetch("income", 0)
-        expense = sums.fetch("expense", 0)
-        { income:, expense:, net: income - expense }
-      end
-
-      # Organizze's cash flow lists the invoices still to be paid among the
-      # entries, on their due date. Only when nothing narrows the list to
-      # something an invoice is not (a type other than expenses, a category, a
-      # card, a search), and only over a period.
-      def open_invoices
-        filters = filter_params
-        return unless filters[:view] == "cash_flow" && !narrowed_past_invoices?(filters)
-
-        period = Date.parse(filters[:from].to_s)..Date.parse(filters[:to].to_s)
-        OpenInvoicesQuery.new(current_user, period:, account_id: filters[:account_id].presence).call
-      rescue Date::Error
-        nil
-      end
-
-      def narrowed_past_invoices?(filters)
-        %i[category_id credit_card_id search].any? { |key| filters[key].present? } ||
-          NOT_INVOICES.any? { |key, values| values.include?(filters[key].to_s) }
       end
 
       def filter_params

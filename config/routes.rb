@@ -22,7 +22,10 @@ Rails.application.routes.draw do
         end
       end
       resources :categories, except: %i[new edit]
-      resources :transactions, except: %i[new edit]
+      resources :transactions, except: %i[new edit] do
+        # The filtered list as a CSV file, every page of it.
+        get :export, on: :collection
+      end
       # :id is the shared transfer_id (a uuid); show/update/destroy act on every
       # leg of the transfer together.
       resources :transfers, only: %i[index show create update destroy]
