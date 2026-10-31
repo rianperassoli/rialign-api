@@ -24,6 +24,35 @@ RSpec.describe TransactionsQuery do
     described_class.new(user.transactions, params).call
   end
 
+  describe "type, as Organizze's Tipo" do
+    def descriptions(params)
+      run(params).pluck(:description)
+    end
+
+    before do
+      create(:transaction, user:, account:, kind: "expense", description: "To savings", amount: 10,
+                           date: Date.new(2026, 5, 2), transfer_id: SecureRandom.uuid, category: nil)
+      create(:transaction, user:, account:, category: expense_cat, description: "TV 1/3", amount: 100,
+                           date: Date.new(2026, 5, 3), series_id: SecureRandom.uuid, installment_number: 1,
+                           installment_total: 3)
+      create(:transaction, user:, account:, category: expense_cat, description: "Netflix", amount: 40,
+                           date: Date.new(2026, 5, 4), series_id: SecureRandom.uuid)
+    end
+
+    it "splits income and expenses from transfers, and series by kind" do
+      expect(descriptions(type: "income")).to eq(["Salary"])
+      expect(descriptions(type: "expense")).to eq(["Groceries", "Netflix", "TV 1/3", "Rent"])
+      expect(descriptions(type: "transfer")).to eq(["To savings"])
+      expect(descriptions(type: "fixed")).to eq(["Netflix"])
+      expect(descriptions(type: "installments")).to eq(["TV 1/3"])
+    end
+
+    it "combines with paid and ignores an unknown type" do
+      expect(descriptions(type: "expense", paid: "false")).to eq(["Rent"])
+      expect(run(type: "tags").count).to eq(6)
+    end
+  end
+
   it "returns all transactions ordered by date desc by default" do
     expect(run({}).to_a).to eq([groceries, salary, rent])
   end

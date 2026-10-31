@@ -111,7 +111,7 @@ module Api
       end
 
       def filter_params
-        params.permit(:kind, :account_id, :credit_card_id, :category_id,
+        params.permit(:kind, :type, :account_id, :credit_card_id, :category_id,
                       :paid, :from, :to, :search, :sort, :direction).to_h.symbolize_keys
       end
     end
