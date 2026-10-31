@@ -27,6 +27,11 @@ RSpec.describe Transfers::UpdateTransfer, type: :service do
     expect([balance(from), balance(to)]).to eq([-250, 250])
   end
 
+  it "marks both legs paid or pending together" do
+    expect(update(paid: false)).to be_success
+    expect(legs.map(&:reload)).to all(have_attributes(paid: false))
+  end
+
   it "moves the source and destination to other accounts" do
     update(from_account_id: other.id)
 

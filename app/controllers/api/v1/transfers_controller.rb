@@ -68,7 +68,7 @@ module Api
 
       def transfer_params
         params.expect(
-          transfer: %i[from_account_id to_account_id amount received_amount date description notes]
+          transfer: %i[from_account_id to_account_id amount received_amount date description notes paid]
         )
       end
     end

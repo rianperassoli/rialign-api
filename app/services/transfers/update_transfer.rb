@@ -1,5 +1,5 @@
 module Transfers
-  # Edits a transfer as a whole: amount, date, description and notes go to
+  # Edits a transfer as a whole: amount, date, description, notes and paid go to
   # every leg — except that across currencies `amount` is what leaves the
   # source and `received_amount` what reaches the destination — `from_account_id` to the expense (source) leg and
   # `to_account_id` to the income (destination) one, all in one DB transaction
@@ -9,7 +9,7 @@ module Transfers
   # changing its amount would no longer match them, so it is undone from the
   # invoice instead (see InvoiceSettlement).
   class UpdateTransfer < ApplicationService
-    SHARED = %i[amount date description notes].freeze
+    SHARED = %i[amount date description notes paid].freeze
 
     def initialize(user:, legs:, params:)
       @user = user

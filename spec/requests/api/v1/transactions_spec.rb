@@ -64,6 +64,21 @@ RSpec.describe "Api::V1::Transactions", type: :request do
   describe "GET /api/v1/transactions" do
     before { create_list(:transaction, 3, user:, account:, category:) }
 
+    it "lists a transfer once, from its source, unless narrowed to the destination" do
+      savings = create(:account, user:, name: "Savings")
+      Transfers::CreateTransfer.call(user:, params: { from_account_id: account.id, to_account_id: savings.id,
+                                                      amount: 50, date: Date.current })
+
+      get "/api/v1/transactions", headers: auth_headers(user)
+      transfer = json["data"].select { |row| row["transfer_id"] }
+      expect(transfer.map { |row| row.values_at("kind", "account_id", "counterpart_account_id") })
+        .to eq([["expense", account.id, savings.id]])
+
+      get "/api/v1/transactions?account_id=#{savings.id}", headers: auth_headers(user)
+      expect(json["data"].map { |row| row.values_at("kind", "counterpart_account_id") })
+        .to eq([["income", account.id]])
+    end
+
     it "lists the open invoices among the cash flow, unless the filters rule them out" do
       card = create(:credit_card, user:, closing_day: 31, due_day: 10)
       create(:transaction, user:, account: nil, credit_card: card, amount: 80, paid: false,

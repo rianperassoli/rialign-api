@@ -1,0 +1,11 @@
+#!/bin/bash -e
+
+# Migrations run on boot only when RUN_MIGRATIONS=true, so a deploy never
+# touches the database schema unless that is asked for explicitly.
+# (Render's free plan has no pre-deploy command, so the entrypoint does it.)
+if [ "${RUN_MIGRATIONS}" = "true" ]; then
+  echo "RUN_MIGRATIONS=true: running db:prepare"
+  bundle exec rails db:prepare
+fi
+
+exec "${@}"

@@ -1,0 +1,27 @@
+# Render Blueprint for the Rialign API. The database lives on Neon, not Render.
+services:
+  - type: web
+    name: rialign-api
+    runtime: docker
+    plan: free
+    region: virginia # same region as Vercel (iad1) and Neon (us-east-1)
+    healthCheckPath: /up
+    autoDeploy: true
+    envVars:
+      - key: RAILS_ENV
+        value: production
+      - key: RAILS_LOG_LEVEL
+        value: info
+      # Allowed browser origins (the front proxies server-side, so this is a safety net).
+      - key: CORS_ORIGINS
+        value: https://rialign.rianperassoli.com
+      # Set to "true" for one deploy to run db:prepare, then back to "false".
+      - key: RUN_MIGRATIONS
+        value: "false"
+      # Secrets: filled in the Render dashboard, never committed.
+      - key: DATABASE_URL # Neon pooled connection string
+        sync: false
+      - key: SECRET_KEY_BASE
+        generateValue: true
+      - key: JWT_SECRET_KEY
+        generateValue: true

@@ -5,8 +5,8 @@ module Api
 
       # GET /api/v1/transactions  (filterable + paginated)
       def index
-        transactions = current_user.transactions.includes(:account, category: :parent)
-        scope = TransactionsQuery.new(transactions, filter_params).call
+        transactions = current_user.transactions.includes(:account, category: :parent).preload(:transfer_legs)
+        scope = TransactionsQuery.new(transactions, filter_params).call.one_row_per_transfer
         render_collection(scope, serializer: TransactionSerializer,
                                  meta: TransactionListMeta.new(current_user, scope, filter_params).call)
       end

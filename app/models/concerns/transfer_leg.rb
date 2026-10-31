@@ -15,11 +15,34 @@ module TransferLeg
   included do
     attr_accessor :editing_as_pair
 
+    # Every leg of the same transfer, this one included.
+    has_many :transfer_legs, class_name: "Transaction", primary_key: :transfer_id,
+                             foreign_key: :transfer_id, inverse_of: false, dependent: nil
+
     validate :movement_changed_as_pair, on: :update
+  end
+
+  class_methods do
+    # Organizze lists a transfer once, "from → to": where both legs of one are
+    # in the list, its incoming leg drops out and the outgoing one stands for
+    # it. Narrowed to the destination account, only the incoming leg is there,
+    # and it stays.
+    def one_row_per_transfer
+      paired_incoming = transfers.income.where(transfer_id: transfers.expense.select(:transfer_id))
+      where.not(id: paired_incoming.unscope(:order).select(:id))
+    end
   end
 
   def transfer?
     transfer_id.present?
+  end
+
+  # The account on the other side of an account-to-account transfer; nil for
+  # an invoice payment or a leg whose partner is gone.
+  def counterpart_account_id
+    return unless transfer?
+
+    transfer_legs.find { |leg| leg.id != id }&.account_id
   end
 
   private
