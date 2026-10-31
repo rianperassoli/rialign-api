@@ -58,6 +58,20 @@ RSpec.describe "Api::V1::Transactions", type: :request do
       expect(json["data"].size).to eq(3)
       expect(json.dig("meta", "pagination", "count")).to eq(3)
     end
+
+    it "adds what the whole filtered list sums to, beyond the page" do
+      create(:income_transaction, user:, account:, description: "Pai gasolina", amount: 100)
+      get "/api/v1/transactions?items=1", headers: auth_headers(user)
+      expense = user.transactions.expense.sum(:amount)
+
+      expect(json["data"].size).to eq(1)
+      expect(json.dig("meta", "totals").transform_values(&:to_f))
+        .to eq("income" => 100.0, "expense" => expense.to_f, "net" => (100 - expense).to_f)
+
+      get "/api/v1/transactions?search=gasolina", headers: auth_headers(user)
+      expect(json.dig("meta", "totals").transform_values(&:to_f))
+        .to eq("income" => 100.0, "expense" => 0.0, "net" => 100.0)
+    end
   end
 
   describe "GET /api/v1/transactions/:id" do
