@@ -53,7 +53,40 @@ class CreditCard < ApplicationRecord
     credit_limit - used_limit
   end
 
+  # The invoice to pay next: the oldest one with something still owed, from
+  # the day it starts until it is paid — then the one after takes its place.
+  # Its status tells how far along it is: still taking purchases ("open"),
+  # closed and waiting to be paid ("closed"), or past its due date
+  # ("overdue"). Dates and amounts come from CreditCardInvoiceQuery, as on the
+  # invoice screen. Nil when nothing is owed.
+  def invoice_due
+    month = pending_by_invoice.select { |_, owed| owed.positive? }.keys.min
+    return unless month
+
+    invoice = CreditCardInvoiceQuery.new(self, month:).call
+    { month: invoice[:month], due_date: invoice[:due_date], closing_date: invoice[:closing_date],
+      amount: invoice[:pending], status: due_status(invoice) }
+  end
+
+  # The invoice after #invoice_due and what it holds so far (future
+  # installments, purchases already on it).
+  def invoice_after_due
+    due = invoice_due
+    month = due ? Date.strptime(due[:month], "%Y-%m") >> 1 : current_invoice_month
+    { month: month.strftime("%Y-%m"), amount: pending_by_invoice.fetch(month, 0) }
+  end
+
   private
+
+  def pending_by_invoice
+    transactions.pending.group(:invoice_month).charged_total
+  end
+
+  def due_status(invoice)
+    return "overdue" if Date.current > invoice[:due_date]
+
+    Date.current > invoice[:closing_date] ? "closed" : "open"
+  end
 
   def payment_account_belongs_to_user
     return if payment_account.blank? || payment_account.user_id == user_id

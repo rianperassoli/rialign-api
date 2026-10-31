@@ -13,9 +13,15 @@ class CreditCardSerializer < ApplicationSerializer
       open_invoice: open_invoice,
       next_invoice: next_invoice,
       available_limit: available_limit,
+      **invoices,
       archived: object.archived?,
       created_at: object.created_at
     }
+  end
+
+  # The invoice to pay now and the one after it (see CreditCard#invoice_due).
+  def invoices
+    { invoice_due: object.invoice_due, invoice_after_due: object.invoice_after_due }
   end
 
   # Both are precomputed by Accounts::BalanceCalculator on the dashboard so the

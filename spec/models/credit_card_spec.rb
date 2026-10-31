@@ -114,6 +114,48 @@ RSpec.describe CreditCard, type: :model do
     end
   end
 
+  describe "#invoice_due" do
+    let(:user) { create(:user) }
+    # Closes on the 31st, due on the 4th: November's invoice takes October.
+    let(:card) { create(:credit_card, user:, closing_day: 31, due_day: 4) }
+
+    def charge(amount, invoice, paid: false)
+      create(:transaction, user:, account: nil, credit_card: card, amount:, paid:, date: invoice << 1,
+                           invoice_month: invoice)
+    end
+
+    before do
+      charge(100, Date.new(2026, 10, 1), paid: true)
+      charge(80, Date.new(2026, 11, 1))
+      charge(30, Date.new(2026, 12, 1))
+    end
+
+    it "is the oldest invoice still owed, open while it takes purchases, with the one after it" do
+      travel_to Date.new(2026, 10, 20) do
+        expect(card.invoice_due).to include(month: "2026-11", due_date: Date.new(2026, 11, 4), amount: 80,
+                                            status: "open")
+        expect(card.invoice_after_due).to eq(month: "2026-12", amount: 30)
+      end
+    end
+
+    it "stays on that invoice once it closes and after it is due, until it is paid" do
+      travel_to(Date.new(2026, 11, 2)) { expect(card.invoice_due).to include(month: "2026-11", status: "closed") }
+      travel_to(Date.new(2026, 11, 9)) { expect(card.invoice_due).to include(month: "2026-11", status: "overdue") }
+    end
+
+    it "moves on to the next invoice once it is paid, and is nil when nothing is owed" do
+      card.transactions.where(invoice_month: Date.new(2026, 11, 1)).update_all(paid: true) # rubocop:disable Rails/SkipsModelValidations
+      travel_to Date.new(2026, 11, 2) do
+        expect(card.reload.invoice_due).to include(month: "2026-12", amount: 30, status: "open")
+        expect(card.invoice_after_due).to eq(month: "2027-01", amount: 0)
+      end
+
+      card.transactions.update_all(paid: true) # rubocop:disable Rails/SkipsModelValidations
+      expect(card.reload.invoice_due).to be_nil
+      expect(card.invoice_after_due[:amount]).to eq(0)
+    end
+  end
+
   describe "#invoice_month_for" do
     it "bills a cycle in the month after it closes when due before the closing day" do
       card = build(:credit_card, closing_day: 31, due_day: 10)
