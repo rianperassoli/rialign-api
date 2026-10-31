@@ -53,6 +53,16 @@ RSpec.describe TransactionsQuery do
     end
   end
 
+  it "keeps card purchases out of the cash flow view" do
+    card = create(:credit_card, user:)
+    create(:transaction, user:, account: nil, credit_card: card, category: expense_cat, description: "Card buy",
+                         amount: 20, date: Date.new(2026, 5, 9))
+
+    expect(run(view: "cash_flow").pluck(:description)).to eq(%w[Groceries Salary Rent])
+    expect(run(view: "cash_flow", credit_card_id: card.id).pluck(:description)).to eq(["Card buy"])
+    expect(run({}).count).to eq(4)
+  end
+
   it "returns all transactions ordered by date desc by default" do
     expect(run({}).to_a).to eq([groceries, salary, rent])
   end

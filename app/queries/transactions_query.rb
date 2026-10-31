@@ -37,8 +37,12 @@ class TransactionsQuery
     scope
   end
 
-  # Where it sits: account, card, category.
+  # Where it sits: account, card, category. Organizze's "Fluxo de caixa" view
+  # is only the money in the accounts: card purchases stay out, the invoice
+  # payments (account legs) stay in. Picking a card shows its purchases all
+  # the same, or the list would always be empty.
   def by_where(scope)
+    scope = scope.where(credit_card_id: nil) if @params[:view] == "cash_flow" && @params[:credit_card_id].blank?
     scope = scope.where(account_id: @params[:account_id]) if @params[:account_id].present?
     scope = scope.where(credit_card_id: @params[:credit_card_id]) if @params[:credit_card_id].present?
     scope = scope.where(category_id: category_ids) if @params[:category_id].present?

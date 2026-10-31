@@ -61,8 +61,10 @@ RSpec.describe "Api::V1::Transactions", type: :request do
 
     it "adds what the whole filtered list sums to, beyond the page" do
       create(:income_transaction, user:, account:, description: "Pai gasolina", amount: 100)
+      create(:transaction, user:, account:, description: "To savings", amount: 999, transfer_id: SecureRandom.uuid,
+                           category: nil)
       get "/api/v1/transactions?items=1", headers: auth_headers(user)
-      expense = user.transactions.expense.sum(:amount)
+      expense = user.transactions.non_transfer.expense.sum(:amount) # the transfer leg stays out
 
       expect(json["data"].size).to eq(1)
       expect(json.dig("meta", "totals").transform_values(&:to_f))

@@ -111,16 +111,19 @@ module Api
       end
 
       # What the whole filtered list adds up to, every page of it: Organizze's
-      # "Total com o termo …" footer, and the list total.
+      # "Total com o termo …" footer, and the list total. Transfers stay out,
+      # invoice payments included, as Organizze adds it up: they only move
+      # money, and a payment would count the card purchases a second time
+      # (October 2026: 37,32 with them out).
       def totals(scope)
-        sums = scope.reorder(nil).group(:kind).sum(:amount)
+        sums = scope.reorder(nil).non_transfer.group(:kind).sum(:amount)
         income = sums.fetch("income", 0)
         expense = sums.fetch("expense", 0)
         { income:, expense:, net: income - expense }
       end
 
       def filter_params
-        params.permit(:kind, :type, :account_id, :credit_card_id, :category_id,
+        params.permit(:kind, :type, :view, :account_id, :credit_card_id, :category_id,
                       :paid, :from, :to, :search, :sort, :direction).to_h.symbolize_keys
       end
     end
