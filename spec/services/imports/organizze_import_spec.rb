@@ -195,6 +195,14 @@ RSpec.describe Imports::OrganizzeImport do
       expect(user.categories.pluck(:name, :kind)).to contain_exactly(%w[Compras income], %w[Compras expense])
     end
 
+    it "dresses Organizze's own categories with their icon and colour" do
+      import({ "NuBank" => [["01.08.2026", "Feira", "Mercado", -10.0, "Pago"],
+                            ["02.08.2026", "Moto", "Ranger", -20.0, "Pago"]] })
+
+      expect(user.categories.find_by(name: "Mercado")).to have_attributes(icon: "shopping-cart", color: "#ff7043")
+      expect(user.categories.find_by(name: "Ranger")).to have_attributes(icon: nil, color: nil)
+    end
+
     it "reuses a category across rows, ignoring surrounding whitespace" do
       import({ "NuBank" => [["01.08.2026", "A", "Investimentos", -10.0, "Pago"],
                             ["02.08.2026", "B", "Investimentos ", -20.0, "Pago"]] })

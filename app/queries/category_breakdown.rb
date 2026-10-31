@@ -30,7 +30,7 @@ class CategoryBreakdown
     children = rows.reject { |id, _| id == top.id }.map do |id, total|
       { category_id: id, name: categories[id].name, total: }
     end
-    { category_id: top.id, name: top.name, color: top.color, total: rows.sum { |_, total| total },
+    { category_id: top.id, name: top.name, color: top.color, icon: top.icon, total: rows.sum { |_, total| total },
       children: children.sort_by { |child| -child[:total] } }
   end
 end

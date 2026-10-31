@@ -33,10 +33,10 @@ RSpec.describe DashboardQuery do
 
   it "groups expenses by category (paid + pending) with name/color, biggest first" do
     expect(result[:by_category]).to eq([
-                                         { category_id: rent.id, name: rent.name, color: rent.color, total: 800,
-                                           children: [] },
-                                         { category_id: food.id, name: food.name, color: food.color, total: 200,
-                                           children: [] }
+                                         { category_id: rent.id, name: rent.name, color: rent.color, icon: nil,
+                                           total: 800, children: [] },
+                                         { category_id: food.id, name: food.name, color: food.color, icon: nil,
+                                           total: 200, children: [] }
                                        ])
   end
 

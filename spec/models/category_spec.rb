@@ -3,6 +3,20 @@ require "rails_helper"
 RSpec.describe Category, type: :model do
   subject(:category) { build(:category) }
 
+  it "takes an icon name from the app's set, or none" do
+    expect(build(:category, icon: "shopping-cart")).to be_valid
+    expect(build(:category, icon: nil)).to be_valid
+    expect(build(:category, icon: "<svg>")).not_to be_valid
+  end
+
+  it "shows its parent's icon when it has none of its own" do
+    parent = create(:category, icon: "house")
+    child = create(:category, user: parent.user, parent:, icon: nil)
+
+    expect(child.display_icon).to eq("house")
+    expect(parent.display_icon).to eq("house")
+  end
+
   it { is_expected.to belong_to(:user) }
   it { is_expected.to have_many(:transactions).dependent(:restrict_with_error) }
 

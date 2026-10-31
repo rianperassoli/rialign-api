@@ -19,10 +19,11 @@ RSpec.describe CategoryBreakdown do
 
   it "adds subcategories into their parent, biggest first, listing them for drill-down" do
     expect(rows).to eq([
-                         { category_id: food.id, name: "Alimentação", color: "#e67e22", total: 400,
+                         { category_id: food.id, name: "Alimentação", color: "#e67e22", icon: nil, total: 400,
                            children: [{ category_id: market.id, name: "Mercado", total: 300 },
                                       { category_id: restaurant.id, name: "Restaurante", total: 90 }] },
-                         { category_id: rent.id, name: "Aluguel", color: rent.color, total: 350, children: [] }
+                         { category_id: rent.id, name: "Aluguel", color: rent.color, icon: nil, total: 350,
+                           children: [] }
                        ])
   end
 

@@ -77,7 +77,7 @@ class CategoryReportQuery
     sums.each do |(id, date), total|
       rows[categories[id].parent || categories[id]][@buckets.index_of(date.to_date)] += total
     end
-    rows.map { |top, values| { category_id: top.id, name: top.name, color: top.color, values: } }
+    rows.map { |top, values| { category_id: top.id, name: top.name, color: top.color, icon: top.icon, values: } }
         .sort_by { |row| -row[:values].sum }
   end
 

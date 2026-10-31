@@ -47,6 +47,7 @@ class TransactionSerializer < ApplicationSerializer
 
     category = object.category
     { id: category.id, name: category.name, kind: category.kind, color: category.display_color,
+      icon: category.display_icon,
       parent: category.parent && { id: category.parent.id, name: category.parent.name } }
   end
 end

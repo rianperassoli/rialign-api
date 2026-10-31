@@ -187,7 +187,8 @@ module Imports
       clean = name.to_s.strip.presence || "Outros"
       @categories[[clean, kind]] ||= begin
         @report[:categories] += 1
-        @user.categories.create!(name: clean, kind: kind)
+        # Organizze's own categories arrive with their icon and colour.
+        @user.categories.create!(name: clean, kind: kind, **CategoryPresets.for(clean, kind))
       end
     end
   end

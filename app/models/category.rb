@@ -21,6 +21,8 @@ class Category < ApplicationRecord
 
   validates :name, presence: true
   validates :kind, presence: true, inclusion: { in: KINDS }
+  # A name from the web app's icon set ("shopping-cart"); the app draws it.
+  validates :icon, format: { with: /\A[a-z0-9-]{1,40}\z/ }, allow_blank: true
   validate :parent_usable
   validate :kind_kept_once_used, on: :update
 
@@ -37,6 +39,11 @@ class Category < ApplicationRecord
   # What a subcategory shows when it has no color of its own.
   def display_color
     color.presence || parent&.color
+  end
+
+  # Likewise for the icon.
+  def display_icon
+    icon.presence || parent&.icon
   end
 
   private

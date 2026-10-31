@@ -36,7 +36,7 @@ module Api
       end
 
       def category_params
-        params.expect(category: %i[name kind color parent_id])
+        params.expect(category: %i[name kind color icon parent_id])
       end
     end
   end
