@@ -58,4 +58,76 @@ RSpec.describe "Api::V1::Authentication", type: :request do
       expect(response).to have_http_status(:unauthorized)
     end
   end
+
+  describe "PATCH /api/v1/auth/me" do
+    let(:user) { create(:user, name: "Old", email: "me@example.com") }
+
+    it "changes the name and ignores an email change" do
+      patch "/api/v1/auth/me", params: { name: "New", email: "other@example.com" }.to_json, headers: auth_headers(user)
+
+      expect(response).to have_http_status(:ok)
+      expect(json.dig("data", "name")).to eq("New")
+      expect(user.reload.email).to eq("me@example.com")
+    end
+
+    it "returns 422 on a blank name" do
+      patch "/api/v1/auth/me", params: { name: "" }.to_json, headers: auth_headers(user)
+
+      expect(response).to have_http_status(:unprocessable_entity)
+      expect(user.reload.name).to eq("Old")
+    end
+
+    it "rejects a missing token" do
+      patch "/api/v1/auth/me", params: { name: "New" }.to_json, headers: { "Content-Type" => "application/json" }
+      expect(response).to have_http_status(:unauthorized)
+    end
+  end
+
+  describe "PATCH /api/v1/auth/password" do
+    let(:user) { create(:user, password: "password123", password_confirmation: "password123") }
+    let(:body) do
+      { current_password: "password123", password: "newpassword1", password_confirmation: "newpassword1" }
+    end
+
+    it "changes the password" do
+      patch "/api/v1/auth/password", params: body.to_json, headers: auth_headers(user)
+
+      expect(response).to have_http_status(:ok)
+      expect(user.reload.authenticate("newpassword1")).to be_truthy
+    end
+
+    it "returns 422, not 401, on a wrong current password" do
+      patch "/api/v1/auth/password", params: body.merge(current_password: "nope").to_json, headers: auth_headers(user)
+
+      expect(response).to have_http_status(:unprocessable_entity)
+      expect(user.reload.authenticate("password123")).to be_truthy
+    end
+  end
+
+  describe "DELETE /api/v1/auth/me" do
+    let!(:user) { create(:user, password: "password123", password_confirmation: "password123") }
+
+    it "deletes the account when the password is right" do
+      create(:account, user:)
+
+      expect { delete "/api/v1/auth/me", params: { password: "password123" }.to_json, headers: auth_headers(user) }
+        .to change(User, :count).by(-1)
+
+      expect(response).to have_http_status(:no_content)
+      expect(Account.unscoped.where(user_id: user.id)).to be_empty
+    end
+
+    it "returns 422 and keeps the account on a wrong password" do
+      expect { delete "/api/v1/auth/me", params: { password: "nope" }.to_json, headers: auth_headers(user) }
+        .not_to change(User, :count)
+
+      expect(response).to have_http_status(:unprocessable_entity)
+    end
+
+    it "rejects a missing token" do
+      delete "/api/v1/auth/me", params: { password: "password123" }.to_json,
+                                headers: { "Content-Type" => "application/json" }
+      expect(response).to have_http_status(:unauthorized)
+    end
+  end
 end

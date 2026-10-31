@@ -5,9 +5,12 @@ Rails.application.routes.draw do
   namespace :api do
     namespace :v1 do
       # Authentication
-      post "auth/register", to: "authentication#register"
-      post "auth/login",    to: "authentication#login"
-      get  "auth/me",       to: "authentication#me"
+      post   "auth/register", to: "authentication#register"
+      post   "auth/login",    to: "authentication#login"
+      get    "auth/me",       to: "authentication#me"
+      patch  "auth/me",       to: "authentication#update"
+      delete "auth/me",       to: "authentication#destroy"
+      patch  "auth/password", to: "authentication#change_password"
 
       resources :imports, only: %i[index show create] do
         member { post :confirm }
