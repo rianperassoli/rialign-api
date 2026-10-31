@@ -10,9 +10,11 @@
 #  - One account: everything on it, its transfers included, since for that
 #    account they are money in and out.
 #
-# Only settled money, unless `unpaid` adds what is still scheduled. The
-# balance is the accounts' balance at the end of the bucket, transfers
-# included.
+# Only settled money, unless `unpaid` adds what is still scheduled — the card
+# invoices still to be paid among it, as money leaving on their due date
+# (Organizze keeps an unpaid invoice as a bill on the paying account; see
+# OpenInvoicesQuery). The balance is the accounts' balance at the end of the
+# bucket, transfers included.
 #
 # Checked to the cent against Organizze for October 2026: 02/10 is 14.796,91
 # in and 16.427,06 out (31.927,06 of account expenses less a 15.500,00
@@ -60,12 +62,29 @@ class CashFlowQuery
   end
 
   def daily_sums
-    @daily_sums ||= flows.where(date: @from..@to).group(:date, :kind).sum(:amount)
+    @daily_sums ||= begin
+      sums = flows.where(date: @from..@to).group(:date, :kind).sum(:amount)
+      open_invoices.each do |line|
+        key = [line[:due_date], "expense"]
+        sums[key] = sums.fetch(key, 0) + line[:amount]
+      end
+      sums
+    end
   end
 
   # Net change per day, in money: income minus expense.
   def daily_changes
-    @daily_changes ||= legs.where(date: @from..@to).group(:date).sum(signed)
+    @daily_changes ||= begin
+      changes = legs.where(date: @from..@to).group(:date).sum(signed)
+      open_invoices.each { |line| changes[line[:due_date]] = changes.fetch(line[:due_date], 0) - line[:amount] }
+      changes
+    end
+  end
+
+  def open_invoices
+    return [] unless @unpaid
+
+    @open_invoices ||= OpenInvoicesQuery.new(@user, period: @from..@to, account_id: @account&.id).call
   end
 
   def opening_balance

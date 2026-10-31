@@ -56,6 +56,16 @@ RSpec.describe CashFlowQuery do
     expect(money(query[:rows][29])).to include(expense: 0, balance: 1520)
   end
 
+  it "counts the invoices still to be paid on their due date, among what is unpaid" do
+    card = create(:credit_card, user:, payment_account: checking, closing_day: 30, due_day: 10)
+    create(:transaction, user:, account: nil, credit_card: card, category:, amount: 70, paid: false,
+                         date: october - 10, invoice_month: october)
+
+    expect(money(query(unpaid: true)[:rows][9])).to eq(income: 0, expense: 70, net: -70, balance: 1450)
+    expect(money(query(unpaid: true, account: checking)[:rows][9])).to include(expense: 70)
+    expect(money(query[:rows][9])).to include(expense: 0, balance: 1520)
+  end
+
   it "groups by week (from Sunday) and by month, clipped to the period" do
     weeks = query(group: "week")[:rows]
     expect(weeks.first).to include(from: october, to: Date.new(2026, 10, 3))

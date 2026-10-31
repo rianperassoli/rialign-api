@@ -50,6 +50,27 @@ RSpec.describe "Api::V1::Transactions", type: :request do
   describe "GET /api/v1/transactions" do
     before { create_list(:transaction, 3, user:, account:, category:) }
 
+    it "lists the open invoices among the cash flow, unless the filters rule them out" do
+      card = create(:credit_card, user:, closing_day: 31, due_day: 10)
+      create(:transaction, user:, account: nil, credit_card: card, amount: 80, paid: false,
+                           date: Date.new(2026, 10, 5), invoice_month: Date.new(2026, 11, 1))
+      period = "view=cash_flow&from=2026-11-01&to=2026-11-30"
+
+      get "/api/v1/transactions?#{period}", headers: auth_headers(user)
+      expect(json.dig("meta", "open_invoices").sole).to include("due_date" => "2026-11-10", "amount" => "80.0")
+
+      get "/api/v1/transactions?#{period}&type=expense&paid=false", headers: auth_headers(user)
+      expect(json.dig("meta", "open_invoices").size).to eq(1)
+
+      ["&type=income", "&search=x", "&paid=true", "&kind=income"].each do |narrowing|
+        get "/api/v1/transactions?#{period}#{narrowing}", headers: auth_headers(user)
+        expect(json["meta"]).not_to have_key("open_invoices")
+      end
+
+      get "/api/v1/transactions?view=cash_flow&from=bad&to=worse", headers: auth_headers(user)
+      expect(json["meta"]).not_to have_key("open_invoices")
+    end
+
     it "lists paginated transactions scoped to the user" do
       create(:transaction) # another user's transaction
       get "/api/v1/transactions", headers: auth_headers(user)
