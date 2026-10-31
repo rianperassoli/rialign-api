@@ -39,6 +39,7 @@ COPY --from=build /rails /rails
 # Run as a non-root user.
 RUN groupadd --system --gid 1000 rails && \
     useradd rails --uid 1000 --gid 1000 --create-home --shell /bin/bash && \
+    mkdir -p log tmp/pids && \
     chown -R rails:rails log tmp
 USER 1000:1000
 
